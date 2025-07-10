@@ -1,0 +1,99 @@
+{
+    "layer": "top",
+    "position": "top",
+    "height": 35,
+    "margin-top": 5,
+    "margin-bottom": 5,
+    "spacing": 4,
+    "modules-left": [
+        "custom/launcher",
+        "hyprland/workspaces"
+    ],
+    "modules-center": [
+        "custom/media"
+    ],
+    "modules-right": [
+        "network",
+        "pulseaudio",
+        "tray",
+        "clock",
+        "custom/power"
+    ],
+
+    "hyprland/workspaces": {
+        "format": "{name}",
+        "on-click": "activate",
+        "format-icons": {
+            "default": "",
+            "active": "",
+            "urgent": ""
+        },
+        "persistent_workspaces": {
+            "1": {},
+            "2": {},
+            "3": {},
+            "4": {},
+            "5": {}
+        }
+    },
+
+    "custom/launcher": {
+        "format": "",
+        "on-click": "rofi -show drun",
+        "on-click-right": "killall rofi",
+        "tooltip": false
+    },
+
+    "custom/media": {
+        "format": "{icon} {}",
+        "return-type": "json",
+        "max-length": 40,
+        "format-icons": {
+            "spotify": "",
+            "default": ""
+        },
+        "escape": true,
+        "exec": "playerctl -a metadata --format '{\"text\": \"{{artist}} - {{title}}\", \"tooltip\": \"{{playerName}}\", \"icon\": \"{{status}}\"}' -F",
+        "on-click": "playerctl play-pause",
+        "on-click-right": "playerctl stop"
+    },
+
+    "network": {
+        "format-wifi": "  {essid}",
+        "format-ethernet": "",
+        "format-disconnected": "睊",
+        "tooltip-format": "{ifname} via {gwaddr}",
+        "on-click": "nm-connection-editor"
+    },
+
+    "pulseaudio": {
+        "format": "{icon}  {volume}%",
+        "format-muted": "  Mute",
+        "format-icons": {
+            "default": ["", "", ""]
+        },
+        "scroll-step": 5,
+        "on-click": "qpwgraph",
+        "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+        "on-scroll-up": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+",
+        "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-",
+        "tooltip": false
+    },
+
+    "tray": {
+        "icon-size": 18,
+        "spacing": 8
+    },
+
+    "clock": {
+        "format": "  {:%H:%M}",
+        "tooltip-format": "<big>{:%A, %d %B %Y}</big>",
+        "interval": 1
+    },
+
+    "custom/power": {
+        "format": "",
+        "on-click": "wlogout",
+        "tooltip": false
+    }
+}
