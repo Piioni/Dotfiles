@@ -22,6 +22,8 @@ alias grep='grep --color=auto'
 alias egrep='egrep --color=auto'
 alias fgrep='fgrep --color=auto'
 
+alias vfzf='nvim $(fzf -m --preview="bat --color=always {}")'
+alias fzfpr='fzf --preview="bat --color=always {}"'
 
 # ── Misc Utilities ────────────────────────────────────────
 alias reload='exec fish'
@@ -29,4 +31,10 @@ alias q='exit'
 alias c='clear'
 
 alias ff='fastfetch -c ~/.config/fastfetch/material.jsonc'
+
+#  Pacman shit
+alias pacmanclean='sudo pacman -Rns $(pacman -Qdtq)'
+alias i='yay -S'
+alias yayclean='yay -Yc'
+
 
