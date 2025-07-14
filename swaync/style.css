@@ -1,0 +1,192 @@
+/**
+ *    ┏┓┓ ┏┏┓┓┏┳┓┏┓  ┏┓┓┏┏┓┳┓┏┓┏┓┳┓┏┓┏┓┏┳┓
+ *    ┗┓┃┃┃┣┫┗┫┃┃┃ ━━┣ ┃┃┣ ┣┫┣ ┃┃┣┫┣ ┗┓ ┃ 
+ *    ┗┛┗┻┛┛┗┗┛┛┗┗┛  ┗┛┗┛┗┛┛┗┻ ┗┛┛┗┗┛┗┛ ┻ 
+ *  Catppuccin Frappé - SwayNC Theme                                        
+ */
+
+/* Colors - Catppuccin Frappé */
+@define-color base          #303446;  /* Base */
+@define-color mantle       #292c3c;   /* Mantle */
+@define-color crust        #232634;   /* Crust */
+
+@define-color text         #c6d0f5;   /* Text */
+@define-color subtext1     #b5bfe2;   /* Subtext1 */
+@define-color subtext0     #a5adce;   /* Subtext0 */
+
+@define-color blue         #8caaee;   /* Blue */
+@define-color lavender     #babbf1;   /* Lavender */
+@define-color sapphire     #85c1dc;   /* Sapphire */
+@define-color sky          #99d1db;   /* Sky */
+@define-color teal         #81c8be;   /* Teal */
+@define-color green        #a6d189;   /* Green */
+@define-color yellow       #e5c890;   /* Yellow */
+@define-color peach        #ef9f76;   /* Peach */
+@define-color maroon       #ea999c;   /* Maroon */
+@define-color red          #e78284;   /* Red */
+@define-color mauve        #ca9ee6;   /* Mauve */
+@define-color pink         #f4b8e4;   /* Pink */
+@define-color flamingo     #eebebe;   /* Flamingo */
+@define-color rosewater    #f2d5cf;   /* Rosewater */
+
+/* Config */
+* {
+    font-family: "JetBrainsMono Nerd Font";
+    font-style: italic;
+    font-size: 14px;
+}
+
+/* Notification */
+.notification {
+    background: alpha(@base, 0.9);
+    color: @text;
+    border: 2px solid @lavender;
+    border-radius: 12px;
+    padding: 12px;
+    margin: 8px;
+    box-shadow: 0 4px 6px alpha(@crust, 0.1);
+}
+
+.body {
+    color: @subtext1;
+    font-size: 13px;
+}
+
+.summary {
+    font-size: 15px;
+    font-weight: bold;
+    color: @blue;
+    margin-bottom: 4px;
+}
+
+.time {
+    font-size: 12px;
+    color: @subtext0;
+    margin-right: 10px;
+}
+
+.close-button {
+    background-color: @red;
+    color: @crust;
+    border-radius: 8px;
+    padding: 4px 8px;
+    margin: 4px;
+}
+
+/* Control Center */
+.control-center {
+    background: alpha(@base, 0.95);
+    border: 2px solid @lavender;
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 4px 12px alpha(@crust, 0.2);
+}
+
+/* Widgets */
+.widget-title {
+    color: @text;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.widget-title > button {
+    background: alpha(@mantle, 0.8);
+    color: @text;
+    border-radius: 8px;
+    padding: 6px 12px;
+}
+
+.widget-title > button:hover {
+    background: @peach;
+    color: @crust;
+}
+
+/* Buttons Grid */
+.widget-buttons-grid {
+    background: alpha(@mantle, 0.7);
+    border-radius: 12px;
+    padding: 8px;
+}
+
+.widget-buttons-grid > flowbox > flowboxchild > button {
+    background: alpha(@blue, 0.2);
+    color: @text;
+    border-radius: 8px;
+    margin: 6px;
+    padding: 12px;
+    min-width: 40px;
+    min-height: 40px;
+    transition: all 0.2s ease;
+}
+
+.widget-buttons-grid > flowbox > flowboxchild > button:hover {
+    background: alpha(@green, 0.4);
+}
+
+.widget-buttons-grid > flowbox > flowboxchild > button.toggle:checked {
+    background: @green;
+    color: @crust;
+}
+
+/* DND Widget */
+.widget-dnd {
+    background: alpha(@mantle, 0.7);
+    border-radius: 12px;
+    padding: 8px;
+}
+
+.widget-dnd > switch {
+    background: alpha(@maroon, 0.3);
+    border-radius: 12px;
+}
+
+.widget-dnd > switch:checked {
+    background: @maroon;
+}
+
+/* Volume & Backlight */
+.widget-volume {
+    background: alpha(@mantle, 0.7);
+    border-radius: 12px;
+    padding: 8px;
+    color: @text;
+}
+
+/* Sliders */
+trough {
+    background: alpha(@crust, 0.6);
+    border-radius: 4px;
+    min-height: 6px;
+}
+
+trough highlight {
+    background: @teal;
+    border-radius: 4px;
+}
+
+trough slider {
+    background: @text;
+    border-radius: 50%;
+    min-width: 16px;
+    min-height: 16px;
+}
+
+/* MPRIS Widget */
+.widget-mpris {
+    background: alpha(@mantle, 0.7);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 8px;
+}
+
+.widget-mpris button {
+    background: transparent;
+    color: @text;
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.widget-mpris button:hover {
+    background: alpha(@mauve, 0.3);
+}
