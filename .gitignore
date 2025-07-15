@@ -15,6 +15,12 @@ spicetify/
 spotify/
 xfce4/
 simple-update-notifier/
+systemd/
+wireplumber/
+pipewire/
+rofi/images/
+
+
 
 spotify-launcher.conf
 dolphinrc
