@@ -14,6 +14,7 @@ image/png=swayimg.desktop
 image/jpeg=swayimg.desktop
 image/webp=swayimg.desktop
 inode/chardevice=org.xfce.mousepad.desktop
+video/mp4=swayimg.desktop
 
 [Added Associations]
 x-scheme-handler/http=zen.desktop;
@@ -28,3 +29,4 @@ application/x-extension-xhtml=zen.desktop;
 application/x-extension-xht=zen.desktop;
 inode/chardevice=org.xfce.mousepad.desktop;
 text/x-readme=org.xfce.mousepad.desktop;
+video/mp4=io.github.celluloid_player.Celluloid.desktop;swayimg.desktop;
