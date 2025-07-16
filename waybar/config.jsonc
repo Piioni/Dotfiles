@@ -4,7 +4,6 @@
  *    ┗┻┛┛┗┗┛┻┛┛┗┛┗ 
  *                                              
  */
-
  
  {
 
@@ -12,7 +11,6 @@
 	"layer": "top",
 	"position": "top",
 	"spacing": 0,
-	"height": 35,
 	"margin-top": 0,
 	"margin-right": 0,
 	"margin-bottom": 0,
@@ -20,18 +18,17 @@
 	/*----------Modules Left----------------*/
 	"modules-left": [
 		"custom/launcher",
-		"group/utility",
+		"group/system",
+		"tray",
 	],
 	/*----------Modules Center--------------*/
 	"modules-center": [
 		"hyprland/workspaces",
-		"custom/swaync"
 	],
 	/*----------Modules Right--------------*/
 	"modules-right": [
-		"tray",
-		"pulseaudio",
-		"network",
+		"custom/swaync",
+		"group/utility",
 		"clock"
 	],
 
@@ -45,59 +42,28 @@
 		"on-click": "~/.config/rofi/bin/side-launcher.sh"
 	},
 
-	/*-----------Cpu, Memory, Colorpicker, Temperature, Idle-inhibitor------*/
+	/*-----------Cpu, Memory, Temperature, Idle-inhibitor------*/
 	"cpu": {
-		"format": "󰻠",
-		"tooltip": true
+		"format": "󰍛 {usage}%",
+		"interval": 20
 	},
 	"memory": {
-		"format": ""
+		"format": "  {percentage}%"
 	},
 	"temperature": {
 		"critical-threshold": 80,
-		"format": ""
-	},
-	"custom/colorpicker": {
-    		"format": "󰏘",  
-		"exec": "~/.config/hypr/scripts/colorpicker.sh -j",
- 		"on-click": "~/.config/hypr/scripts/colorpicker.sh",
- 		"on-click-right": "~/.config/hypr/scripts/colorpicker.sh -l", 
- 		"signal": 1,
-   		"tooltip": true
-	},
-
-	"idle_inhibitor": {
-		"format": "{icon}",
-		"format-icons": {
-			"activated": "",
-			"deactivated": ""
-		}
-	},
-
-	/*----------------Expand---------------*/
-	"custom/expand": {
-		"format": " ",
-		"tooltip": true,
-		"tooltip-format": "Click to show utilities"
+		"format": " {temperatureC}°",
+		"tooltip": false
 	},
 
 	/*-----------Group-------------------*/
-	"group/utility": {
+	"group/system": {
 		"orientation": "inherit",
-		"drawer": {
-			"transition-duration": 600,
-			"children-class": "child-utility",
-			"transition-left-to-right": true,
-			"click-to-reveal": true
-		},
 		"modules": [
-			"custom/expand",
 			"cpu",
 			"memory",
-			"temperature",
-			"idle_inhibitor",
-			"custom/colorpicker"
-		]
+			"temperature"
+			]
 	},
 
 	/*------------Tray--------------------*/
@@ -110,14 +76,30 @@
 /*------------------------------Modules center------------------------------------*/
 /*--------------------------------------------------------------------------------*/
 
-
 	/*----------Hyprland Workspace----------*/
 	"hyprland/workspaces": {
-		"format": "{name}",
+		"format": "{icon}",
+		"format-icons": {
+		 	"1": "1",
+		        "2": "2",
+		 	"3": "3",
+		 	"4": "4",
+		 	"5": "5",
+		 	"6": "6",
+		 	"7": "7",
+		 	"8": "8",
+		 	"9": "9",
+		 	"10": "10",
+			"active": "",
+			"urgent": "",
+		},
 		"on-click": "activate",
-		"on-scroll-down": "hyprctl dispatch workspace e+1",
-		"on-scroll-up": "hyprctl dispatch workspace e-1"
+		"sort-by-number": true,
 	},
+
+
+/*------------------------------Modules Right-------------------------------------*/
+/*--------------------------------------------------------------------------------*/
 
 	/*-----------SwayNC----------------*/
 
@@ -143,11 +125,6 @@
 		"escape": true
 	},
 
-
-/*------------------------------Modules Right-------------------------------------*/
-/*--------------------------------------------------------------------------------*/
-
-
 	/*---------------Pulseaudio------------*/
 	"pulseaudio": {
 		"format": "{icon} {volume}%",
@@ -168,15 +145,23 @@
 		"format-disconnected": "󰖪 0% ",
 		"format-ethernet": "󰈀 100% ",
 		"format-linked": "{ifname} (No IP)",
-		"format-wifi": " {signalStrength}%",
+		"format-wifi": "  {signalStrength}%",
 		"tooltip-format": "Connected to {essid} {ifname} via {gwaddr}",
 		"on-click": "kitty --title KittyNetwork sh -c  'sleep 0.1; iwgtk'"
 	},
 
+	/*-----------Group-------------------*/
+	"group/utility": {
+		"orientation": "inherit",
+		"modules": [
+			"pulseaudio",
+			"network"
+			]
+	},
+
 	/*------------Clock------------------*/
 	"clock": {
-		"format": "󰥔 {:%I:%M:%S %p} ",
-		"interval": 1,   
+		"format": "󰥔 {:%I:%M %p} ",
 		"tooltip-format": "<tt>{calendar}</tt>",
 		"calendar": {
 			"format": {
@@ -185,7 +170,8 @@
 		},
 		"actions": {
 			"on-click-right": "shift_down",
-			"on-click": "shift_up"
+			"on-click": "shift_up",
+			"on-click-middle": "shift_reset"
 		}
 	}
 
