@@ -11,3 +11,7 @@ abbr lg 'lazygit'
 
 # System
 abbr v 'nvim'
+abbr pi 'sudo pacman -S '
+abbr pc 'sudo pacman -Rns $(pacman -Qdtq)'
+abbr i 'yay -S'
+abbr yc 'yay -Yc'

@@ -32,10 +32,6 @@ alias c='clear'
 
 alias ff='fastfetch -c ~/.config/fastfetch/material.jsonc'
 
-#  Pacman shit
-alias pacmanclean='sudo pacman -Rns $(pacman -Qdtq)'
-alias p='pacman' 
-alias i='yay -S'
-alias yayclean='yay -Yc'
+
 
 
