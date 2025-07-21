@@ -5,6 +5,10 @@
  *                          
  */
 
+/* ---- Global properties ---- */ 
+@import 		    	          "~/.config/rofi/styles/shared/colors.rasi"
+@import 	            	      "~/.config/rofi/styles/shared/fonts.rasi"
+
 /* ---- Configuration ---- */
 configuration {
     modi:                   	  "drun";
@@ -16,15 +20,11 @@ configuration {
     
 }
 
-/* ---- Global properties ---- */ 
-@import 		    	  "~/.config/rofi/configs/shared/colors.rasi"
-@import 	            	  "~/.config/rofi/configs/shared/fonts.rasi"
-
 /* ---- Window ---- */
 window {
     enabled:                     true;
     fullscreen:                  false;
-    width:                       100%;
+    width:                       90%;
     transparency:                "real";
     cursor:                      "default";
     spacing:                     0px;
@@ -46,7 +46,7 @@ mainbox {
 /* ---- Listview ---- */
 listview {
     enabled:                     true;
-    columns:                     6;
+    columns:                     5;
     lines:                       1;
     spacing:                     30px;
     padding:                     20px 30px;
@@ -86,7 +86,7 @@ element selected.normal {
 }
 
 element-icon {
-    border-radius:		 20px;
+    border-radius:		         20px;
     cursor:                      inherit;
     background-color:            transparent;
     text-color:                  inherit;
@@ -105,8 +105,8 @@ element-text {
 /*****----- Message -----*****/
 message {
     background-color:            transparent;
-    border:			 0px;
-    margin:			 20px 0px 0px 0px;
+    border:			             0px;
+    margin:			             20px 0px 0px 0px;
     padding:0px;
     spacing:0px;
     border-radius: 10px;

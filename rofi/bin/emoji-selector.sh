@@ -4,27 +4,27 @@
 #  ┛┗┗┛┻ ┻  ┗┛┛ ┗┗┛┗┛┻
 #                     
 
+# Extrae y muestra los emojis
+emoji=$(sed '1,/^### DATA ###$/d' "$0" | rofi -dmenu -theme ~/.config/rofi/configs/emoji-layout.rasi)
 
-if [ $? -eq 0 ]
-then
-    sed '1,/^### DATA ###$/d' $0 | rofi -dmenu -theme $HOME/.config/rofi/configs/emoji-layout.rasi | cut -d ' ' -f 1 | tr -d '\n' | wl-copy
-else
-    sed '1,/^### DATA ###$/d' $0 | rofi -dmenu -theme $HOME/.config/rofi/configs/emoji-layout.rasi | cut -d ' ' -f 1 | tr -d '\n' | wl-copy
+# Procesa y copia solo el emoji (primer carácter antes de espacio)
+if [ -n "$emoji" ]; then
+    echo "$emoji" | cut -d ' ' -f 1 | tr -d '\n' | wl-copy 2>/dev/null || \
+    echo "$emoji" | cut -d ' ' -f 1 | tr -d '\n' | xclip -selection clipboard 2>/dev/null
 fi
-exit
+
+exit 0
+
 ### DATA ###
-¿? question upside down reversed spanish
+¿? question
 ← left arrow
 ↑ up arrow
 → right arrow
 ↓ down arrow
-←↑→↓ all directions up down left right arrows
-AH↗️HA↘️HA↗️HA↘️HA↗️HA↘️HA↗️HA↘️ pekora arrows hahaha rabbit
 • dot circle separator
 「」 japanese quote square bracket
-¯\_(ツ)_/¯ shrug idk i dont know
+¯\_(ツ)_/¯ shrug 
 ↵ enter key return
-𝕏  twitter x logo
 👉👈 etou ughhhhhhh shy
 👉👌 put it in imagination perv
 😀 grinning face face smile happy joy :D grin

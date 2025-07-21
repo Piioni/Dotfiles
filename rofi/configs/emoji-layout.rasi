@@ -6,24 +6,26 @@
  */
 
 
+/* ---- Global properties ---- */ 
+@import 		    	          "~/.config/rofi/styles/shared/colors.rasi"
+@import 	            	      "~/.config/rofi/styles/shared/fonts.rasi"
+
 /*****----- Configuration -----*****/
 configuration {
     modi:                       "drun";
     show-icons:                 false;
 }
 
-/*****----- Global Properties -----*****/
-@import '~/.config/rofi/configs/shared/colors.rasi'
-@import '~/.config/rofi/configs/shared/fonts.rasi'
 
 /*****----- Main Window -----*****/
 window {
     /* properties for window widget */
-    transparency:                "real";
+    transparency:                true;
     location:                    center;
     anchor:                      center;
     fullscreen:                  false;
     width:                       800px;
+    height:                      800px;
     x-offset:                    0px;
     y-offset:                    0px;
     border:                      2px;
@@ -56,9 +58,8 @@ listbox {
 inputbar {
     enabled:                     true;
     spacing:                     10px;
-    padding:                     100px 40px;
-    background-color:            transparent;
-    background-image:            url("~/.config/rofi/images/currentWal.thumb", width);
+    padding:                     20px 20px;
+    background-color:            @background-alt;
     border-radius:               14px;
     text-color:                  @foreground;
     orientation:                 horizontal;
@@ -89,8 +90,7 @@ entry {
 /*****----- Listview -----*****/
 listview {
     enabled:                     true;
-    columns:                     2;
-    lines:                       5;
+    columns:                     4;
     cycle:                       true;
     dynamic:                     true;
     scrollbar:                   false;
@@ -98,7 +98,7 @@ listview {
     reverse:                     false;
     fixed-height:                false;
     fixed-columns:               false;
-    spacing:                     6px;
+    spacing:                     30px;
     background-color:            transparent;
     text-color:                  @foreground;
     cursor:                      "default";
@@ -130,7 +130,7 @@ element normal.active {
 element selected.normal {
     background-color:            inherit;
     text-color:                  inherit;
-    border:                      0px 3px 0px 3px;
+    border:                      3px 3px 3px 3px;
     border-color:                @border-color;
 }
 element selected.urgent {

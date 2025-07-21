@@ -4,8 +4,6 @@
 #  ┗┛┻┻┛┗┛  ┗┛┛┗┗┛┛┗┗┛┛┗┗┛┛┗
 #                           
 
-
-
 # Dirs
 dir="$HOME/.config/rofi/styles/side-launcher"
 theme='style-1'

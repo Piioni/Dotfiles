@@ -1,11 +1,3 @@
-/***
- *    ┏┓┏┳┓┓┏┓ ┏┓  ━┓
- *    ┗┓ ┃ ┗┫┃ ┣ ━━ ┃
- *    ┗┛ ┻ ┗┛┗┛┗┛   ╹
- *                   
- */
-
-
 // Config //
 configuration {
     modi:                        "drun,filebrowser,window,run";
@@ -25,15 +17,15 @@ configuration {
 
 // Main //
 window {
-    height:                      33em;
-    width:                       63em;
+    height:                      30em;
+    width:                       37em;
     transparency:                "real";
     fullscreen:                  false;
     enabled:                     true;
     cursor:                      "default";
     spacing:                     0em;
     padding:                     0em;
-    border-radius:               3em;
+    border-radius:               1em;
     border-color:                @border-color;
     background-color:            @background;
 }
@@ -41,68 +33,41 @@ mainbox {
     enabled:                     true;
     spacing:                     0em;
     padding:                     0em;
-    orientation:                 horizontal;
-    children:                    [ "dummywall" , "listbox" ];
-    background-color:            transparent;
-}
-dummywall {
-    spacing:                     0em;
-    padding:                     0em;
-    width:                       37em;
-    expand:                      false;
-    orientation:                 horizontal;
-    children:                    [ "mode-switcher" , "inputbar" ];
-    background-color:            transparent;
-    background-image:            url("~/.config/rofi/images/currentWal.thumb", height);
-}
-
-
-// Modes //
-mode-switcher{
     orientation:                 vertical;
-    enabled:                     true;
-    width:                       3.8em;
-    padding:                     9.2em 0.5em 9.2em 0.5em;
-    spacing:                     1.2em;
+    children:                    [ "inputbar" , "dummybox" ];
     background-color:            transparent;
     background-image:            url("~/.config/rofi/images/currentWalBlur.thumb", height);
 }
-button {
-    cursor:                      pointer;
-    border-radius:               2em;
-    background-color:            @background-alpha;
-    text-color:                  @foreground;
-}
-button selected {
-    background-color:            @selected;
-    text-color:                  @selected-text;
+dummybox {
+    padding:                     0.5em;
+    spacing:                     0em;
+    orientation:                 horizontal;
+    children:                    [ "mode-switcher" , "listbox" ];
+    background-color:            transparent;
+    background-image:            transparent;
 }
 
 
 // Inputs //
 inputbar {
-    enabled:                     true;
-    children:                    [ "entry" ];
-    background-color:            transparent;
-}
-entry {
     enabled:                     false;
 }
 
 
 // Lists //
 listbox {
+    padding:                     0em;
     spacing:                     0em;
-    padding:                     2em;
     children:                    [ "dummy" , "listview" , "dummy" ];
     background-color:            transparent;
+    background-image:            transparent;
 }
 listview {
-    enabled:                     true;
+    padding:                     1em;
     spacing:                     0em;
-    padding:                     0em;
+    enabled:                     true;
     columns:                     1;
-    lines:                       8;
+    lines:                       7;
     cycle:                       true;
     dynamic:                     true;
     scrollbar:                   false;
@@ -112,21 +77,43 @@ listview {
     fixed-height:                true;
     fixed-columns:               true;
     cursor:                      "default";
-    background-color:            transparent;
+    background-color:            @background-alpha;
     text-color:                  @foreground;
+    border-radius:               1.5em;
 }
 dummy {
     background-color:            transparent;
 }
 
 
+// Modes //
+mode-switcher {
+    orientation:                 vertical;
+    width:                       6.8em;
+    enabled:                     true;
+    padding:                     3.2em 1em 3.2em 1em;
+    spacing:                     1em;
+    background-color:            transparent;
+}
+button {
+    cursor:                      pointer;
+    border-radius:               3em;
+    background-color:            @background-alpha;
+    text-color:                  @foreground;
+}
+button selected {
+    background-color:            @selected;
+    text-color:                  @selected-text;
+}
+
+
 // Elements //
 element {
     enabled:                     true;
-    spacing:                     0.8em;
-    border-radius:               1em;
-    padding:                     0.4em 0.4em 0.4em 1.5em;
+    spacing:                     1em;
+    padding:                     0.4em;
     cursor:                      pointer;
+    border-radius:               1em;
     background-color:            transparent;
     text-color:                  @foreground;
 }
@@ -135,7 +122,7 @@ element selected.normal {
     text-color:                  @selected-text;
 }
 element-icon {
-    size:                        2.8em;
+    size:                        3em;
     cursor:                      inherit;
     background-color:            transparent;
     text-color:                  inherit;
