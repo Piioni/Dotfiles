@@ -1,0 +1,63 @@
+# ─── BASE DEL SISTEMA ───
+base-devel                            # Herramientas de compilación
+git
+
+# ─── INTERFAZ/HYPRLAND ───
+hyprland xdg-desktop-portal-hyprland
+hypridle hyprlock hyprpicker wlogout
+waybar rofi swaync
+swww                                  # Fondos dinámicos
+slurp grim swappy swayimg             # Capturas/Regiones
+wf-recorder                           # Grabación pantalla
+sddm                                  # Display Manager
+
+# ─── AUDIO ───
+pipewire pipewire-alsa pipewire-jack pipewire-pulse
+wireplumber 
+pwvucontrol
+libpulse                              # Compatibilidad PulseAudio
+
+# ─── TERMINAL/CLI ───
+kitty                                 # Emulador terminal
+fish zoxide starship                  # Shell + herramientas
+bat eza                               # Mejores cat/ls
+fzf  yazi	                          # Navegación/archivos
+lazygit				                  # LazyGit
+btop nvtop                            # Monitoreo sistema
+neovim vim                            # Editores
+fastfetch                             # Sistema info
+
+# ─── UTILIDADES ───
+iwd iwgtk wireless_tools              # Red
+thunar  			      # Gestor archivos
+thunar-archive-plugin tumbler  
+cliphist wl-clipboard                 # Portapapeles
+7zip unzip                            # Compresión
+imagemagick ffmpegthumbnailer         # Multimedia
+ps_mem                                # Memoria
+jq                                    # JSON
+zathura
+nwg-look
+xxhash  
+man-db
+
+# ─── Sddm shit ───
+sddm qt6-svg qt6-virtualkeyboard qt6-multimedia-ffmpeg 
+
+# ─── FUENTES/TEMAS ───
+noto-fonts noto-fonts-emoji
+ttf-fira-code ttf-jetbrains-mono-nerd 
+ttf-nerd-fonts-symbols
+maplemono-ttf
+catppuccin-gtk-theme-frappe 
+rose-pine-hyprcursor  
+nwg-look                              # Gestor temas GTK
+
+# ─── APLICACIONES ───
+celluloid                             # Reproductor
+zen-browser-bin                       # Navegador
+spotify-launcher                      # Música
+mousepad                              # Editores gráficos
+
+# ─── AUR HELPERS ───
+yay           

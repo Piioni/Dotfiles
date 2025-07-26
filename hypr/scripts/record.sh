@@ -12,6 +12,9 @@ getdate() {
 getaudiooutput() {
     pactl list sources | grep 'Name' | grep 'monitor' | cut -d ' ' -f2
 }
+getmicrophone() {
+    echo "alsa_input.usb-HP__Inc_HyperX_Cloud_III_000000000000-00.mono-fallback"
+}
 getactivemonitor() {
     hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name'
 }
@@ -33,6 +36,9 @@ else
     elif [[ "$1" == "--fullscreen" ]]; then
         notify-send "Starting recording" 'recording_'"$(getdate)"'.mp4' -a 'Recorder'
         wf-recorder -o $(getactivemonitor) --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t & disown
+    elif [[ "$1" == "--fullscreen-mic" ]]; then
+        notify-send "Starting recording" 'recording_'"$(getdate)"'.mp4' -a 'Recorder'
+        wf-recorder -o $(getactivemonitor) --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --audio="$(getmicrophone)" & disown
     else
         if ! region="$(slurp 2>&1)"; then
             notify-send "Recording cancelled" "Selection was cancelled" -a 'Recorder'
