@@ -38,11 +38,11 @@ enable_service iwd
 echo "Configurando SDDM..."
 
 # Copiar tema SDDM
-if [ -d "../sddm/themes/cool-sddm" ]; then
-    sudo cp -r ../sddm/themes/cool-sddm /usr/share/sddm/themes/
+if [ -d "./sddm/cool-sddm" ]; then
+    sudo cp -r ./sddm/cool-sddm /usr/share/sddm/themes/
     echo "Tema SDDM copiado exitosamente"
 else
-    echo "⚠️  Advertencia: No se encontró el tema SDDM en ../sddm/themes/cool-sddm"
+    echo "⚠️  Advertencia: No se encontró el tema SDDM en ./sddm/cool-sddm"
 fi
 
 # Crear directorio de configuración si no existe

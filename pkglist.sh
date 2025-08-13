@@ -1,3 +1,4 @@
+#!/bin/bash
 # ─── BASE DEL SISTEMA ───
 BASE_SYSTEM=(
     base-devel

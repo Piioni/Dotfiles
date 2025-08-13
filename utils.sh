@@ -62,7 +62,7 @@ enable_service() {
 # ─── Aplicar dotfiles con Stow ───
 apply_dotfiles() {
     echo -e "${YELLOW}[!] Aplicando dotfiles con Stow...${NC}"
-    cd ../dotfiles/
+    cd ./dotfiles/
     stow --target="$HOME" --restow .  # El punto (.) indica "todo en este directorio"
 }
 
