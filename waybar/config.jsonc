@@ -19,11 +19,11 @@
 	"modules-left": [
 		"custom/launcher",
 		"group/system",
-		"tray",
+		"tray"
 	],
 	/*----------Modules Center--------------*/
 	"modules-center": [
-		"hyprland/workspaces",
+		"hyprland/workspaces"
 	],
 	/*----------Modules Right--------------*/
 	"modules-right": [
@@ -61,9 +61,8 @@
 		"orientation": "inherit",
 		"modules": [
 			"cpu",
-			"memory",
-			"temperature"
-			]
+			"memory"
+		]
 	},
 
 	/*------------Tray--------------------*/
@@ -81,7 +80,7 @@
 		"format": "{icon}",
 		"format-icons": {
 		 	"1": "1",
-		        "2": "2",
+			"2": "2",
 		 	"3": "3",
 		 	"4": "4",
 		 	"5": "5",

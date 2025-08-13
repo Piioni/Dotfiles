@@ -30,3 +30,4 @@ application/x-extension-xht=zen.desktop;
 inode/chardevice=org.xfce.mousepad.desktop;
 text/x-readme=org.xfce.mousepad.desktop;
 video/mp4=io.github.celluloid_player.Celluloid.desktop;swayimg.desktop;
+audio/vnd.wave=io.github.celluloid_player.Celluloid.desktop;

@@ -90,8 +90,11 @@ tooltip label {
 
 #memory {
   color: @yellow;
+ 
+  border-radius: 0px 24px 10px 0px;
+  margin-right: 7px;
   padding-left: 7px;
-  padding-right: 7px;
+  padding-right: 15px;
 }
 
 #temperature {
