@@ -26,7 +26,6 @@ spotify-launcher.conf
 dolphinrc
 kwalletrc
 trashrc
-mimeapps.list
 pavucontrol.ini
 install.log
 electron-builder.json

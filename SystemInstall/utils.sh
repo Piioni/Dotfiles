@@ -59,6 +59,13 @@ enable_service() {
     fi
 }
 
+# ─── Aplicar dotfiles con Stow ───
+apply_dotfiles() {
+    echo -e "${YELLOW}[!] Aplicando dotfiles con Stow...${NC}"
+    cd ../dotfiles/
+    stow --target="$HOME" --restow .  # El punto (.) indica "todo en este directorio"
+}
+
 cleanup() {
     echo -e "\n${YELLOW}Instalación interrumpida${NC}"
     exit 1
