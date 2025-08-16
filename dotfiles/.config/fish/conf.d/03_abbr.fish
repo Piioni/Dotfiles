@@ -8,6 +8,7 @@ abbr gs 'git status'
 abbr ga 'git add'
 abbr gc 'git commit'
 abbr lg 'lazygit'
+abbr lzd 'lazydocker'
 
 # System
 abbr v 'nvim'

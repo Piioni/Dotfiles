@@ -88,5 +88,5 @@ DEV=(
     visual-studio-code-bin
     python python-pipenv
     npm
-    docker docker-compose
+    docker docker-compose lazydocker
 )
