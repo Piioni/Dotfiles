@@ -5,9 +5,6 @@ set -e  # Detener script en caso de error
 source ./utils.sh
 source ./pkglist.sh
 
-# ─── Verificar root ───
-check_root
-
 # ─── Verificar/Instalar paru ───
 if ! is_installed paru; then
     echo "Instalando paru (AUR helper)..."
@@ -33,45 +30,5 @@ install_packages "${DEV[@]}"
 echo "Habilitando servicios..."
 enable_service sddm
 enable_service iwd
-
-# ─── Configurar SDDM ───
-echo "Configurando SDDM..."
-
-# Copiar tema SDDM
-if [ -d "./sddm/cool-sddm" ]; then
-    sudo cp -r ./sddm/cool-sddm /usr/share/sddm/themes/
-    echo "Tema SDDM copiado exitosamente"
-else
-    echo "⚠️  Advertencia: No se encontró el tema SDDM en ./sddm/cool-sddm"
-fi
-
-# Crear directorio de configuración si no existe
-if [ ! -d /etc/sddm.conf.d ]; then
-    sudo mkdir -p /etc/sddm.conf.d
-fi
-
-# Configurar teclado virtual
-cat <<EOF | sudo tee /etc/sddm.conf.d/virtualkb.conf
-[General]
-InputMethod=qtvirtualkeyboard
-EOF
-
-# Configurar tema
-cat <<EOF | sudo tee /etc/sddm.conf
-[Theme]
-Current=cool-sddm
-EOF
-
-# Verificar que stow esté instalado
-if ! is_installed stow; then
-    echo "Error: GNU Stow no está instalado"
-    sudo pacman -S --needed --noconfirm stow || {
-        echo "Error al instalar GNU Stow"
-        exit 1
-    }
-fi
-
-# ─── Aplicar dotfiles mediante STOW ───
-apply_dotfiles
 
 echo "¡Instalación completada!"

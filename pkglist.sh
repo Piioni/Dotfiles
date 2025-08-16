@@ -53,10 +53,8 @@ UTILITIES=(
     zathura
     nwg-look
     xxhash
+    bc
     man-db
-    localsend
-    catppuccin-gtk-theme-macchiato
-    catppuccin-gtk-theme-mocha
 )
 
 # ─── SDDM THEMES ───
@@ -67,12 +65,14 @@ SDDM_THEMES=(
 
 # ─── FUENTES/TEMAS ───
 FONTS_THEMES=(
-    noto-fonts noto-fonts-emoji
+    noto-fonts noto-fonts-cjk noto-fonts-emoji
     ttf-fira-code ttf-jetbrains-mono-nerd
     ttf-nerd-fonts-symbols
+    ttf-dejavu
+    monospace
     maplemono-ttf
-    catppuccin-gtk-theme-frappe
-    rose-pine-hyprcursor
+    catppuccin-gtk-theme-macchiato
+    catppuccin-gtk-theme-mocha
 )
 
 # ─── APLICACIONES ───
