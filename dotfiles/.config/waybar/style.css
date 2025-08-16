@@ -107,7 +107,7 @@ tooltip label {
 
 /*--------------Tray----------------*/
 #tray {
-  background: @background;
+  background: @base;
   font-weight: bold;
   margin: 5px 0px;
   color: @foreground;
@@ -198,15 +198,14 @@ tooltip label {
 
 /*---------------Audio, Network, Clock---------------*/
 
-#pulseaudio, #network{
+#wireplumber, #network{
   background: @base;
   font-weight: bold;
   margin: 5px 0px;
   border-radius : 0px;
 }
 
-
-#pulseaudio {
+#wireplumber {
   color: @text;
   border-radius: 10px 0px 0px 24px;
   padding-left: 15px;

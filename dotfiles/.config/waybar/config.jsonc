@@ -90,10 +90,10 @@
 		 	"9": "9",
 		 	"10": "10",
 			"active": "",
-			"urgent": "",
+			"urgent": ""
 		},
 		"on-click": "activate",
-		"sort-by-number": true,
+		"sort-by-number": true
 	},
 
 
@@ -124,19 +124,15 @@
 		"escape": true
 	},
 
-	/*---------------Pulseaudio------------*/
-	"pulseaudio": {
-		"format": "{icon} {volume}%",
-		"format-icons": {
-			"default": [
-				"󰕿",
-				"󰖀",
-				"󰕾"
-			]
-		},
-		"format-muted": "󰝟",
+	/*---------------WirePlumber------------*/
+	"wireplumber": {
+		"format": "{icon}  {volume}%",
+		"format-muted": "",
 		"on-click": "pwvucontrol",
-		"scroll-step": 5
+		"on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+		"format-icons": ["", "", ""],
+		"scroll-step": 2,
+		"max-volume": 150
 	},
 
 	/*--------------Network-----------------*/
@@ -153,7 +149,7 @@
 	"group/utility": {
 		"orientation": "inherit",
 		"modules": [
-			"pulseaudio",
+			"wireplumber",
 			"network"
 			]
 	},
