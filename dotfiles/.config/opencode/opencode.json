@@ -1,0 +1,19 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "mcp": {
+        "context7": {
+            "type": "remote",
+            "url": "https://mcp.context7.com/mcp",
+            "headers": {
+                "CONTEXT7_API_KEY": "ctx7sk-3244da54-4852-4ff4-bbc5-28f45cd9d27f"
+            }
+        }
+    },
+    "plugin": ["@tarquinen/opencode-dcp@latest, opencode-mystatus", "oh-my-opencode@latest"],
+    "command": {
+        "mystatus": {
+            "description": "Query quota usage for all AI accounts",
+            "template": "Use the mystatus tool to query quota usage. Return the result as-is without modification."
+        }
+    }
+}
