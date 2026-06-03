@@ -9,7 +9,7 @@
         "enableHtop": false,
         "enableNvtop": false,
         "enablePandora": false,
-        "enableQt": true,
+        "enableQt": false,
         "enableSpicetify": false,
         "enableTerm": false,
         "enableWarp": false,
