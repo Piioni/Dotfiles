@@ -1,0 +1,132 @@
+{
+    "appearance": {
+        "font": {
+            "family": {
+                "mono": "Maple Mono NF"
+            }
+        },
+        "transparency": {
+            "base": 0.9,
+            "enabled": true,
+            "layers": 0.18
+        }
+    },
+    "bar": {
+        "activeWindow": {
+            "compact": true,
+            "inverted": false,
+            "showOnHover": false
+        },
+        "clock": {
+            "background": true,
+            "showDate": false,
+            "showIcon": true
+        },
+        "persistent": true,
+        "popouts": {
+            "activeWindow": false,
+            "statusIcons": true
+        },
+        "status": {
+            "showAudio": true,
+            "showBattery": true,
+            "showBluetooth": true,
+            "showKbLayout": false,
+            "showLockStatus": false,
+            "showMicrophone": false,
+            "showNetwork": true,
+            "showWifi": true
+        },
+        "tray": {
+            "background": false,
+            "compact": false,
+            "recolour": false
+        },
+        "workspaces": {
+            "activeIndicator": true,
+            "maxWindowIcons": 0,
+            "occupiedBg": false,
+            "perMonitorWorkspaces": true,
+            "showWindows": false,
+            "shown": 6
+        }
+    },
+    "dashboard": {
+        "enabled": true,
+        "showDashboard": true,
+        "showOnHover": true
+    },
+    "general": {
+        "apps": {
+            "audio": [
+                "pavucontrol"
+            ],
+            "explorer": [
+                "thunar"
+            ],
+            "playback": [
+                "mpv"
+            ],
+            "terminal": [
+                "kitty"
+            ]
+        }
+    },
+    "launcher": {
+        "actionPrefix": ">",
+        "enableDangerousActions": true,
+        "favouriteApps": [
+        ],
+        "showOnHover": false,
+        "useFuzzy": {
+            "actions": true,
+            "apps": true,
+            "schemes": false,
+            "variants": false,
+            "wallpapers": false
+        },
+        "vimKeybinds": false
+    },
+    "notifs": {
+        "actionOnClick": false,
+        "defaultExpireTimeout": 3000,
+        "expire": true,
+        "openExpanded": false
+    },
+    "paths": {
+        "wallpaperDir": "~/Pictures/walls"
+    },
+    "services": {
+        "audioIncrement": 0.1,
+        "brightnessIncrement": 0.1,
+        "lyricsBackend": "NetEase",
+        "maxVolume": 1,
+        "showLyrics": false,
+        "smartScheme": true,
+        "useFahrenheit": false,
+        "useFahrenheitPerformance": false,
+        "useTwelveHourClock": false,
+        "weatherLocation": ""
+    },
+    "session": {
+        "commands": {
+            "hibernate": [
+                "/home/piioni/.config/hypr/scripts/logout.sh"
+            ],
+            "logout": [
+                "caelestia",
+                "shell",
+                "lock",
+                "lock"
+            ],
+            "reboot": [
+                "systemctl",
+                "reboot"
+            ],
+            "shutdown": [
+                "systemctl",
+                "poweroff"
+            ]
+        }
+    }
+}

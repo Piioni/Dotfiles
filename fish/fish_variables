@@ -1,0 +1,5 @@
+# This file contains fish universal variable definitions.
+# VERSION: 3.0
+SETUVAR --export EXA_STANDARD_OPTIONS:\x2d1\x1e\x2d\x2dgroup\x1e\x2d\x2dgroup\x2ddirectories\x2dfirst\x1e\x2d\x2dicons
+SETUVAR __fish_initialized:4300
+SETUVAR fish_user_paths:/home/piioni/\x2ebun/bin\x1e/home/piioni/\x2elocal/bin\x1e/home/piioni/\x2eopencode/bin

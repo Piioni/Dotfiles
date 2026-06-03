@@ -1,0 +1,174 @@
+# ~/.config/swayimg/config
+# Configuración optimizada para Wayland (Hyprland/Sway) - Modo minimalista funcional
+
+[general]
+mode = viewer
+size = 80%                          # Usa 80% del área de pantalla
+position = auto                     # Centrado por defecto
+overlay = no                        # Ventana flotante (Wayland)
+decoration = no                     # Sin bordes
+app_id = swayimg-overlay            # ID para gestión de ventanas
+threads = 4                         # Usar 4 hilos para procesamiento
+cache-size = 512                    # MB de caché (para imágenes grandes)
+
+[viewer]
+window = #1e1e2eaa                  # Fondo oscuro semitransparente (Catppuccin Mocha)
+transparency = grid                 # Patrón de cuadrícula para transparencias
+scale = optimal                     # Ajuste automático al tamaño de ventana
+position = center                   # Imagen centrada
+antialiasing = mks13                # Máxima calidad de escalado
+loop = yes                          # Navegación circular
+history = 1                         # Mantener 1 imágenes en caché
+preload = 1                         # Precargar 1 imágenes adelante
+
+[slideshow]
+time = 3                            # 3 segundos por imagen
+window = auto                       # Color de fondo automático
+scale = fill                        # Cubrir toda el área disponible
+position = center 
+antialiasing = mks13
+
+[gallery]
+size = 200                          # Tamaño de miniaturas
+cache = 100                         # Almacenar 150 miniaturas en RAM
+background = #1e1e2eff              # Fondo oscuro
+select = #89b4faff                  # Color de selección (azul Catppuccin)
+
+[font]
+name = JetBrains Mono Nerd Font     # Fuente con soporte de iconos
+size = 12                           # Tamaño legible
+color = #cdd6f4ff                   # Texto claro
+shadow = #000000aa                  # Sombra suave
+
+[info]
+show = yes                          # Mostrar metadatos
+info_timeout = 4                    # Ocultar después de 4 segundos
+status_timeout = 2                  # Mensajes temporales breves
+
+[info.viewer]
+top_left = +name,+format,+filesize,+imagesize,+exif
+top_right = index
+bottom_left = scale,frame
+bottom_right = status
+
+[keys.viewer]
+# --- Navegación básica ---
+# ~/.config/swayimg/config
+# Configuración optimizada para Wayland (Hyprland/Sway) - Modo minimalista funcional
+
+[general]
+mode = viewer
+size = 80%                          # Usa 80% del área de pantalla
+position = center                   # Centrado por defecto
+overlay = yes                       # Ventana flotante (Wayland)
+decoration = no                     # Sin bordes
+app_id = swayimg-overlay            # ID para gestión de ventanas
+threads = 4                         # Usar 4 hilos para procesamiento
+cache-size = 512                    # MB de caché (para imágenes grandes)
+
+[viewer]
+window = #1e1e2eaa                  # Fondo oscuro semitransparente (Catppuccin Mocha)
+transparency = grid                 # Patrón de cuadrícula para transparencias
+scale = fit                         # Ajuste automático al tamaño de ventana
+position = center                   # Imagen centrada
+antialiasing = mks13                # Máxima calidad de escalado
+loop = yes                          # Navegación circular
+history = 3                         # Mantener 3 imágenes en caché
+preload = 2                         # Precargar 2 imágenes adelante
+
+[slideshow]
+time = 3                            # 3 segundos por imagen
+window = auto                       # Color de fondo automático
+scale = fill                        # Cubrir toda el área disponible
+
+[gallery]
+size = 180                          # Tamaño de miniaturas
+cache = 150                         # Almacenar 150 miniaturas en RAM
+background = #1e1e2eff              # Fondo oscuro
+select = #89b4faff                  # Color de selección (azul Catppuccin)
+
+[font]
+name = JetBrains Mono Nerd Font     # Fuente con soporte de iconos
+size = 12                           # Tamaño legible
+color = #cdd6f4ff                   # Texto claro
+shadow = #000000aa                  # Sombra suave
+
+[info]
+show = yes                          # Mostrar metadatos
+info_timeout = 4                    # Ocultar después de 4 segundos
+status_timeout = 2                  # Mensajes temporales breves
+
+[info.viewer]
+top_left = +name,+format            # Nombre y formato arriba-izquierda
+bottom_right = scale,index          # Escala e índice abajo-derecha
+
+[keys.viewer]
+# --- Navegación básica ---
+F1 = help
+Home = first_file
+End = last_file
+Prior = prev_file
+Next = next_file
+Space = next_file
+Shift+r = rand_file
+Shift+d = prev_dir
+d = next_dir
+Shift+o = prev_frame
+o = next_frame
+c = skip_file
+s = mode slideshow
+n = animation
+f = fullscreen
+Return = mode gallery
+Left = step_left 10
+Right = step_right 10
+Up = step_up 10
+Down = step_down 10
+Equal = zoom +10
+Plus = zoom +10
+Minus = zoom -10
+w = zoom width
+Shift+w = zoom height
+z = zoom fit
+Shift+z = zoom fill
+0 = zoom real
+BackSpace = zoom optimal
+k = zoom keep
+Alt+s = zoom
+bracketleft = rotate_left
+bracketright = rotate_right
+m = flip_vertical
+Shift+m = flip_horizontal
+a = antialiasing
+r = reload
+i = info
+Shift+Delete = exec rm -f '%' && echo "File removed: %"; skip_file
+Escape = exit
+q = exit
+
+
+# Mouse related
+ScrollLeft = step_right 5
+ScrollRight = step_left 5
+ScrollUp = step_up 5
+ScrollDown = step_down 5
+Ctrl+ScrollUp = zoom +10
+Ctrl+ScrollDown = zoom -10
+Shift+ScrollUp = prev_file
+Shift+ScrollDown = next_file
+Alt+ScrollUp = prev_frame
+Alt+ScrollDown = next_frame
+MouseLeft = drag
+MouseSide = prev_file
+MouseExtra = next_file
+
+
+
+[keys.gallery]
+Return = mode viewer
+Left = step_left
+Right = step_right
+Up = step_up
+Down = step_down
+Minus = thumb -15
+Equal = thumb +15
