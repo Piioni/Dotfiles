@@ -41,6 +41,9 @@
 !/nwg-panel/
 !/nwg-panel/**
 
+!/gtk-*/
+!/gtk-*/**
+
 !/starship.toml
 
 !/swappy/
