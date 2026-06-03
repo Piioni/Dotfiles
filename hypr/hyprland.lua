@@ -1,7 +1,6 @@
 -- Main Hyprland entrypoint: loads the modular Lua config in the intended order.
 require("lua.monitors")
 require("lua.programs")
-require("lua.variables")
 require("lua.decorations")
 require("lua.animations")
 require("lua.inputs")
