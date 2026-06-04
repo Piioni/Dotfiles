@@ -1,11 +1,6 @@
 -- Baseline compositor policy and behavioral defaults.
 hl.config({
-  dwindle = {
-    preserve_split = true,
-    smart_split = false,
-    smart_resizing = false,
-  },
-
+  -- Defaults for the master layout when it is enabled.
   master = {
     mfact = 0.62,
     new_status = "slave",
@@ -14,6 +9,15 @@ hl.config({
     orientation = "left",
     smart_resizing = true,
     drop_at_cursor = true,
+    special_scale_factor = 0.95,
+  },
+
+  -- Tiling behavior for the dwindle layout.
+  dwindle = {
+    preserve_split = true,
+    smart_split = false,
+    smart_resizing = false,
+    special_scale_factor = 0.95,
   },
 
   -- Global compositor behavior and session policy.

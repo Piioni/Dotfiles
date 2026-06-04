@@ -11,3 +11,11 @@ end
 for _, ws in ipairs({ "5", "6" }) do
   hl.workspace_rule({ workspace = ws, monitor = edp, default = true, persistent = true })
 end
+
+hl.workspace_rule({
+  workspace = "special:magic",
+  gaps_in = 12,
+  gaps_out = 28,
+  border_size = 4,
+  animation = "slidevert",
+})

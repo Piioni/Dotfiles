@@ -14,7 +14,7 @@ hl.config({
     snap = {
       enabled = true,
     },
-    layout = "dwindle",
+    layout = "master",
   },
   decoration = {
     rounding = 20,
