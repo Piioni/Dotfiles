@@ -1,4 +1,3 @@
--- Global keyboard, mouse, and media binds for navigation and daily workflow.
 local programs = require("lua.programs")
 
 local function bind_workspace_keys()
@@ -11,6 +10,11 @@ local function bind_workspace_keys()
   hl.bind("SUPER + SHIFT + 0", hl.dsp.window.move({ workspace = 10 }))
 end
 
+-- Mouse draggin and resizing
+hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
+hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true })
+
+-- Application and system binds
 hl.bind("SUPER + Return", hl.dsp.exec_cmd(programs.terminal))
 hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("caelestia shell drawers toggle launcher"))
 hl.bind("SUPER + N", hl.dsp.exec_cmd("caelestia shell drawers toggle sidebar"))
@@ -23,19 +27,22 @@ hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd("caelestia clipboard"))
 hl.bind("SUPER + SHIFT + period", hl.dsp.exec_cmd("caelestia emoji --picker"))
 hl.bind("SUPER + SHIFT + R", hl.dsp.exec_cmd("hyprctl reload"))
 
--- Close only the focused window; do not kill the app process.
+-- Window management binds
 hl.bind("SUPER + Q", hl.dsp.window.close())
 hl.bind("SUPER + B", hl.dsp.exec_cmd(programs.browser))
 hl.bind("SUPER + E", hl.dsp.exec_cmd(programs.fileManager))
 hl.bind("SUPER + F", hl.dsp.exec_cmd("hyprctl dispatch fullscreen 1"))
 hl.bind("SUPER + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind("SUPER + P", hl.dsp.window.pseudo())
+hl.bind("SUPER + W", hl.dsp.exec_cmd([[hyprctl eval 'hl.config({ general = { layout = "dwindle" } })']]))
+hl.bind("SUPER + SHIFT + W", hl.dsp.exec_cmd([[hyprctl eval 'hl.config({ general = { layout = "master" } })']]))
 
 -- Flip split orientation in the current tiling layout.
 hl.bind("SUPER + TAB", hl.dsp.layout("togglesplit"))
 
 bind_workspace_keys()
 
+-- Directional focus and movement for tiling windows. Binds inspired by vim keybinds
 hl.bind("SUPER + H", hl.dsp.focus({ direction = "l" }))
 hl.bind("SUPER + L", hl.dsp.focus({ direction = "r" }))
 hl.bind("SUPER + K", hl.dsp.focus({ direction = "u" }))
@@ -46,14 +53,13 @@ hl.bind("SUPER + SHIFT + L", hl.dsp.window.move({ direction = "r" }))
 hl.bind("SUPER + SHIFT + K", hl.dsp.window.move({ direction = "u" }))
 hl.bind("SUPER + SHIFT + J", hl.dsp.window.move({ direction = "d" }))
 
+-- Screenshot and screen recording binds using grim, slurp, swappy
 hl.bind("SUPER + SHIFT + S", hl.dsp.exec_cmd([[grim -g "$(slurp)" - | swappy -f -]]))
 
+-- Multimedia keys for volume and brightness control using wpctl and brightnessctl
 hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"))
 hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"))
 hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"))
 hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"))
 hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%+"))
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%-"))
-
-hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
-hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true })

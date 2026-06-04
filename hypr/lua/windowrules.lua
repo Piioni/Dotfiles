@@ -1,4 +1,3 @@
--- Per-app and special-case window behavior rules.
 hl.window_rule({
   name = "suppress-maximize-events",
   match = { class = ".*" },
@@ -33,7 +32,7 @@ hl.window_rule({
 hl.window_rule({
   name = "opacity-kitty",
   match = { class = "^(kitty)$" },
-  opacity = "0.96 0.9",
+  opacity = "0.99 0.99",
 })
 hl.window_rule({
   name = "size-move-pwvucontrol",

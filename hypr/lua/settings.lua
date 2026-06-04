@@ -5,37 +5,49 @@ hl.config({
     smart_split = false,
     smart_resizing = false,
   },
+
   master = {
-    new_status = "master",
-    new_on_top = 1,
-    mfact = 0.5,
+    mfact = 0.62,
+    new_status = "slave",
+    new_on_top = false,
+    new_on_active = "after",
+    orientation = "left",
+    smart_resizing = true,
+    drop_at_cursor = true,
   },
+
+  -- Global compositor behavior and session policy.
   misc = {
     disable_hyprland_logo = true,
     disable_splash_rendering = true,
-    vrr = 2,
+    focus_on_activate = false,
+    middle_click_paste = false,
+
+    vrr = 1,
     mouse_move_enables_dpms = true,
+
     -- Only swallow terminal-launched GUI apps from kitty.
     enable_swallow = true,
     swallow_regex = "^(kitty)$",
-    -- Prevent random focus jumps when apps activate themselves.
-    focus_on_activate = false,
+
     -- Keep workspace IDs stable instead of auto-tracking them.
     initial_workspace_tracking = 0,
-    middle_click_paste = false,
   },
+
   binds = {
-    -- Workspace switching behaves like a ring.
     workspace_back_and_forth = true,
-    -- Allow cycling beyond the first/last workspace.
     allow_workspace_cycles = true,
     pass_mouse_when_bound = false,
   },
+
+  -- Compatibility behavior for XWayland clients.
   xwayland = {
     enabled = true,
     force_zero_scaling = true,
   },
+
+  -- Rendering safeguards.
   render = {
-    direct_scanout = false,
+    direct_scanout = 0,
   },
 })

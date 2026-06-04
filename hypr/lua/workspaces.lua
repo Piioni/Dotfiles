@@ -1,7 +1,4 @@
 
--- Workspace-to-monitor policy: pin 1-4 to HDMI and reserve 5-6 for the laptop panel.
-
--- default + persistent keeps empty workspaces alive across restarts.
 local hdmi = "HDMI-A-1"
 local edp = "eDP-1"
 

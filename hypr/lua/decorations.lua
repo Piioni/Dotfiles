@@ -1,13 +1,13 @@
 -- Visual styling for borders, shadows, blur, rounding, and window polish.
 hl.config({
   general = {
-    gaps_in = 4,
-    gaps_out = 7,
-    gaps_workspaces = 50,
-    border_size = 1,
+    gaps_in = 5,
+    gaps_out = 8,
+    gaps_workspaces = 4,
+    border_size = 3,
     col = {
-      active_border = "rgb(8aadf4)",
-      inactive_border = "rgba(121318ff)",
+      active_border = "rgb(c6a2f4)",
+      inactive_border = "rgb(4c5870)",
     },
     resize_on_border = true,
     allow_tearing = false,
@@ -19,14 +19,14 @@ hl.config({
   decoration = {
     rounding = 20,
     dim_inactive = true,
-    dim_strength = 0.025,
+    dim_strength = 0.14,
     dim_special = 0.07,
     blur = {
       enabled = true,
-      size = 11,
-      passes = 2,
+      size = 10,
+      passes = 1,
       new_optimizations = true,
-      xray = false,
+      xray = true,
       noise = 0.01,
       contrast = 1,
       brightness = 1,
