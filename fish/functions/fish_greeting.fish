@@ -1,8 +1,3 @@
 function fish_greeting
-    if set -q __fish_fastfetch_shown
-        return
-    end
-
-    set -g __fish_fastfetch_shown 1
-    fastfetch
+    # Intentionally empty: fastfetch is launched from conf.d/60_fastfetch_random.fish.
 end
