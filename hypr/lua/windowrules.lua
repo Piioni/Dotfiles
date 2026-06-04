@@ -13,7 +13,28 @@ hl.window_rule({
   no_focus = true,
 })
 
+hl.window_rule({
+  name = "global-float-modals",
+  match = { modal = true },
+  float = true,
+  center = true,
+})
+
 -- App-specific rules
+hl.window_rule({
+  name = "app-kitty-opacity",
+  match = { class = "^(kitty)$" },
+  opacity = "0.99 override 0.99 override",
+})
+
+hl.window_rule({
+  name = "app-nautilus-floating",
+  match = { class = [[^(org\.gnome\.Nautilus)$]] },
+  float = true,
+  size = { 1100, 720 },
+  center = true,
+})
+
 hl.window_rule({
   name = "app-nwg-look",
   match = { class = "^(nwg-look)$" },
@@ -25,22 +46,36 @@ hl.window_rule({
   name = "app-pwvucontrol",
   match = { class = "^(com\\.saivert\\.pwvucontrol)$" },
   float = true,
-  size = { 920, 760 },
-  move = { "100%-920", 50 },
-})
-
-hl.window_rule({
-  name = "app-kitty-opacity",
-  match = { class = "^(kitty)$" },
-  opacity = "0.99 0.99",
-})
-
-hl.window_rule({
-  name = "app-nautilus-floating",
-  match = { class = [[^(org\.gnome\.Nautilus)$]] },
-  float = true,
-  size = { 1100, 720 },
+  size = { 1080, 560 },
   center = true,
+})
+
+hl.window_rule({
+  name = "app-swayimg-floating",
+  match = { class = "^(swayimg)$" },
+  float = true,
+  center = true,
+  no_blur = true,
+  no_anim = true,
+})
+
+hl.window_rule({
+  name = "app-pinentry-focus",
+  match = { class = "^(pinentry-)(.*)$" },
+  float = true,
+  center = true,
+  stay_focused = true,
+})
+
+hl.window_rule({
+  name = "app-xwayland-video-bridge",
+  match = { class = "^(xwaylandvideobridge)$" },
+  no_initial_focus = true,
+  no_focus = true,
+  no_anim = true,
+  no_blur = true,
+  max_size = { 1, 1 },
+  opacity = "0.0 override",
 })
 
 -- Special cases
