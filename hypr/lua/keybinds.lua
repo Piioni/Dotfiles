@@ -22,6 +22,7 @@ hl.bind("SUPER + SHIFT + C", hl.dsp.exec_cmd(programs.deskScripts .. "/colorpick
 hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd("caelestia clipboard"))
 hl.bind("SUPER + SHIFT + period", hl.dsp.exec_cmd("caelestia emoji --picker"))
 hl.bind("SUPER + SHIFT + R", hl.dsp.exec_cmd("hyprctl reload"))
+
 -- Close only the focused window; do not kill the app process.
 hl.bind("SUPER + Q", hl.dsp.window.close())
 hl.bind("SUPER + B", hl.dsp.exec_cmd(programs.browser))
@@ -29,6 +30,7 @@ hl.bind("SUPER + E", hl.dsp.exec_cmd(programs.fileManager))
 hl.bind("SUPER + F", hl.dsp.exec_cmd("hyprctl dispatch fullscreen 1"))
 hl.bind("SUPER + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind("SUPER + P", hl.dsp.window.pseudo())
+
 -- Flip split orientation in the current tiling layout.
 hl.bind("SUPER + TAB", hl.dsp.layout("togglesplit"))
 
@@ -43,10 +45,6 @@ hl.bind("SUPER + SHIFT + H", hl.dsp.window.move({ direction = "l" }))
 hl.bind("SUPER + SHIFT + L", hl.dsp.window.move({ direction = "r" }))
 hl.bind("SUPER + SHIFT + K", hl.dsp.window.move({ direction = "u" }))
 hl.bind("SUPER + SHIFT + J", hl.dsp.window.move({ direction = "d" }))
-
-hl.bind("SUPER + CTRL + mouse_down", hl.dsp.exec_cmd([[hyprctl keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor | awk '/^float.*/ {print $2 + 0.5}')]]))
-hl.bind("SUPER + CTRL + mouse_up", hl.dsp.exec_cmd([[hyprctl keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor | awk '/^float.*/ {print $2 - 0.5}')]]))
-hl.bind("SUPER + CTRL + SHIFT + mouse_up", hl.dsp.exec_cmd([[hyprctl keyword cursor:zoom_factor 1]]))
 
 hl.bind("SUPER + SHIFT + S", hl.dsp.exec_cmd([[grim -g "$(slurp)" - | swappy -f -]]))
 

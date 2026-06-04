@@ -43,15 +43,6 @@ hl.window_rule({
 })
 
 hl.window_rule({
-  -- Make kitty popups (like fzf, lazygit, or file pickers) behave like dialogs.
-  name = "float-kitty-popups",
-  match = { class = "^(kitty)$", title = "^(fzf|lazygit|.*file.*picker.*)$" },
-  float = true,
-  size = { 1100, 720 },
-  center = true,
-})
-
-hl.window_rule({
   -- Keep small utility windows away from the main workspace flow.
   name = "float-small-utility-windows",
   match = { class = "^(nwg-look|com\\.saivert\\.pwvucontrol)$" },
