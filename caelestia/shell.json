@@ -62,7 +62,7 @@
                 "pavucontrol"
             ],
             "explorer": [
-                "thunar"
+                "nautilus"
             ],
             "playback": [
                 "mpv"

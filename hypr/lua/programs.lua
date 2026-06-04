@@ -2,7 +2,7 @@
 
 local programs = {
   terminal = "kitty",
-  fileManager = "thunar",
+  fileManager = "nautilus",
   browser = "helium",
   editor = "code",
 

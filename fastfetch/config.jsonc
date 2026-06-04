@@ -13,6 +13,7 @@
     "source": "${XDG_CONFIG_HOME:-$HOME/.config}/fastfetch/logo/*.png",
     "padding": {
       "top": 2,
+      "left": 2,
       "right": 5
     },
     "height": 18
