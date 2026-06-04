@@ -1,47 +1,15 @@
-# Ignore everything by default
 /*
-
-# Keep this file
 !/.gitignore
 
-# Personal dotfiles / hand-maintained configs
-!/btop/
-!/btop/**
-
+# Personal dotfiles
 !/caelestia/
 !/caelestia/**
-
-!/cava/
-!/cava/**
-
-!/fastfetch/
-!/fastfetch/**
-
-!/fish/
-!/fish/**
-
-!/fuzzel/
-!/fuzzel/**
 
 !/hypr/
 !/hypr/**
 
 !/uwsm/
 !/uwsm/**
-
-!/quickshell/
-!/quickshell/**
-
-!/kitty/
-!/kitty/**
-
-!/lazygit/
-!/lazygit/**
-
-!/gtk-*/
-!/gtk-*/**
-
-!/starship.toml
 
 !/swappy/
 !/swappy/**
@@ -52,8 +20,35 @@
 !/swaync/
 !/swaync/**
 
+!/quickshell/
+!/quickshell/**
+
+# Terminal and shell
+!/kitty/
+!/kitty/**
+
+!/fastfetch/
+!/fastfetch/**
+
+!/fish/
+!/fish/**
+
 !/yazi/
 !/yazi/**
 
 !/zellij/
 !/zellij/**
+
+!/btop/
+!/btop/**
+
+!/starship.toml
+
+!/lazygit/
+!/lazygit/**
+
+!/gtk-*/
+!/gtk-*/**
+
+!/fuzzel/
+!/fuzzel/**

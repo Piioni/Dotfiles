@@ -20,6 +20,7 @@ ui {
 keybinds clear-defaults=true {
     locked {
         bind "F11" { SwitchToMode "normal"; }
+        bind "Ctrl g" { SwitchToMode "normal"; }
     }
 
     pane {
