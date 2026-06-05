@@ -1,12 +1,8 @@
-# Show a random buddy brush image on interactive terminals.
+# Show fastfetch on interactive terminals.
 # Inside Zellij, only show it once per session.
 
 function __fastfetch_cleanup_on_resize --on-signal WINCH
     if not set -q __fastfetch_startup_visible
-        return
-    end
-
-    if test "$COLUMNS" -ge 90
         return
     end
 
@@ -15,7 +11,7 @@ function __fastfetch_cleanup_on_resize --on-signal WINCH
     set -e __fastfetch_startup_visible
 end
 
-function __fastfetch_cleanup_on_command --on-event fish_preexec
+function __fastfetch_clear_startup_flag_on_command --on-event fish_preexec
     set -e __fastfetch_startup_visible
 end
 
@@ -46,8 +42,6 @@ if status is-interactive
 
     if test "$should_show_fastfetch" -eq 1; and test -x "$HOME/bin/ff-random"
         "$HOME/bin/ff-random"
-        if test "$COLUMNS" -ge 90
-            set -g __fastfetch_startup_visible 1
-        end
+        set -g __fastfetch_startup_visible 1
     end
 end
