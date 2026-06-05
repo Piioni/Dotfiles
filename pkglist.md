@@ -34,7 +34,7 @@ It is curated from the real `.config` files, not from the distro package manager
 - `btop` — terminal system monitor.
 - `yazi` — terminal file manager.
 - `lazygit` — git TUI.
-- `tmux` — terminal multiplexer present in the workflow.
+- `zellij` — terminal multiplexer present in the workflow.
 
 ## Core desktop apps
 
@@ -44,11 +44,11 @@ It is curated from the real `.config` files, not from the distro package manager
 - `swayimg` — image viewer.
 - `mpv` — playback app configured in Caelestia.
 - `pavucontrol` — audio control app configured in Caelestia.
+- `Zathura` — PDF viewer configured in Caelestia.
 
 ## Notifications / secrets / control center
 
 - `swaync` / `swaynotificationcenter` — notification center config exists and is part of the intended setup.
-- `gnome-keyring` — started on session launch for secrets.
 - `libnotify` — provides `notify-send` used by scripts.
 - `iwgtk` — quick action from the notification center.
 
@@ -80,15 +80,6 @@ It is curated from the real `.config` files, not from the distro package manager
 - `JetBrains Mono Nerd Font` — font used in other tools like Fuzzel/Swayimg.
 - `material-symbols-fonts` — icon/font support for shell UI.
 - `catppuccin-mocha-dark-cursors` — cursor theme used by the session.
-
-## Referenced in config but currently missing/inactive
-
-- `swaync` / `swaynotificationcenter`
-- `mpv`
-- `wf-recorder`
-- `zellij`
-- `iwgtk`
-- `Maple Mono NF` as an identifiable packaged font asset
 
 ## Notes
 
