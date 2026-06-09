@@ -9,7 +9,7 @@ hl.config({
     orientation = "left",
     smart_resizing = true,
     drop_at_cursor = true,
-    special_scale_factor = 0.95,
+    special_scale_factor = 0.97,
   },
 
   -- Tiling behavior for the dwindle layout.

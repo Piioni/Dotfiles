@@ -20,7 +20,7 @@ hl.config({
     rounding = 20,
     dim_inactive = true,
     dim_strength = 0.14,
-    dim_special = 0.07,
+    dim_special = 0.25,
     blur = {
       enabled = true,
       size = 10,

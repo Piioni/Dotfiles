@@ -48,6 +48,7 @@ hl.bind("SUPER + SHIFT + R", hl.dsp.exec_cmd("hyprctl reload"))
 hl.bind("SUPER + Return", hl.dsp.exec_cmd(programs.terminal))
 hl.bind("SUPER + Q", hl.dsp.window.close())
 hl.bind("SUPER + B", hl.dsp.exec_cmd(programs.browser))
+hl.bind("SUPER + SHIFT + B", hl.dsp.exec_cmd(programs.deskScripts .. "/helium-clean-singletons.sh"))
 hl.bind("SUPER + E", hl.dsp.exec_cmd(programs.fileManager))
 
 hl.bind("SUPER + SHIFT + S", hl.dsp.exec_cmd([[grim -g "$(slurp)" - | swappy -f -]]))

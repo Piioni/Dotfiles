@@ -14,8 +14,8 @@ end
 
 hl.workspace_rule({
   workspace = "special:magic",
-  gaps_in = 12,
-  gaps_out = 28,
-  border_size = 4,
+  gaps_in = 1,
+  gaps_out = 1,
+  border_size = 3,
   animation = "slidevert",
 })
