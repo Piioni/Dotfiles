@@ -40,8 +40,8 @@ if status is-interactive
         end
     end
 
-    if test "$should_show_fastfetch" -eq 1; and test -x "$HOME/bin/ff-random"
-        "$HOME/bin/ff-random"
+    if test "$should_show_fastfetch" -eq 1; and type -q ff-random
+        ff-random
         set -g __fastfetch_startup_visible 1
     end
 end
