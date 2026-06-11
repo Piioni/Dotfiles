@@ -42,6 +42,7 @@ hl.bind("SUPER + SHIFT + period", hl.dsp.exec_cmd("caelestia emoji --picker"))
 
 -- Hypr binds
 hl.bind("SUPER + S", hl.dsp.workspace.toggle_special("magic"))
+hl.bind("SUPER + SHIFT + grave", hl.dsp.window.move({ workspace = "special:magic" }))
 hl.bind("SUPER + SHIFT + R", hl.dsp.exec_cmd("hyprctl reload"))
 
 -- Application binds
