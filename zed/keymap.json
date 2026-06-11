@@ -1,0 +1,134 @@
+// Zed keymap
+[
+  {
+    // Copy paste simulator
+    "context": "Editor",
+    "bindings": {
+      "ctrl-shift-c": "editor::Copy",
+      "ctrl-shift-v": "editor::Paste",
+    },
+  },
+
+  {
+    "context": "Editor && (vim_mode == normal || vim_mode == visual) && !VimWaiting && !menu",
+    "bindings": {
+      // Toggles
+      "space t": "terminal_panel::Toggle",
+      "space u g": "project_panel::ToggleHideGitIgnore",
+      "space h": "workspace::ToggleLeftDock",
+
+      // Markdown
+      "space m p": "markdown::OpenPreview",
+      "space m P": "markdown::OpenPreviewToTheSide",
+
+      // Files / search / AI
+      "space f p": "projects::OpenRecent",
+      "space s b": "buffer_search::Deploy",
+      "space a c": "agent::ToggleFocus",
+      "space /": "pane::DeploySearch",
+    },
+  },
+
+  {
+    "context": "Editor && vim_mode == normal && !VimWaiting && !menu",
+    "bindings": {
+      // Save / files / search
+      "ctrl-s": "workspace::Save",
+      "space space": "file_finder::Toggle",
+      "space e": "pane::RevealInProjectPanel",
+
+      // Pane movement
+      "ctrl-w": "pane::CloseActiveItem",
+      "ctrl-h": "workspace::ActivatePaneLeft",
+      "ctrl-l": "workspace::ActivatePaneRight",
+      "ctrl-k": "workspace::ActivatePaneUp",
+      "ctrl-j": "workspace::ActivatePaneDown",
+
+      // LSP
+      "space c a": "editor::ToggleCodeActions",
+      "space c r": "editor::Rename",
+      "g d": "editor::GoToDefinition",
+      "g i": "editor::GoToImplementation",
+      "g t": "editor::GoToTypeDefinition",
+      "g r": "editor::FindAllReferences",
+      "] d": "editor::GoToDiagnostic",
+      "[ d": "editor::GoToPreviousDiagnostic",
+
+      // Git hunks
+      "space g s": "git_panel::ToggleFocus",
+
+      "] h": "editor::GoToHunk",
+      "[ h": "editor::GoToPreviousHunk",
+
+      // Buffers
+      "shift-h": "pane::ActivatePreviousItem",
+      "shift-l": "pane::ActivateNextItem",
+    },
+  },
+
+  // Vim editor specifics
+  {
+    "context": "(Vimcontrol && !menu)",
+    "bindings": {
+      "space": null,
+    },
+  },
+  {
+    "context": "Editor && vim_mode == insert && !menu",
+    "bindings": {
+      "j j": "vim::NormalBefore",
+    },
+  },
+  {
+    "context": "Editor && vim_mode == visual && !VimWaiting && !menu",
+    "bindings": {
+      "g c": "editor::ToggleComments",
+    },
+  },
+
+  {
+    "context": "Terminal",
+    "bindings": {
+      "ctrl-w": "pane::CloseActiveItem",
+      "ctrl-t": "workspace::NewTerminal",
+      "ctrl-h": "workspace::ActivatePaneLeft",
+      "ctrl-l": "workspace::ActivatePaneRight",
+      "ctrl-k": "workspace::ActivatePaneUp",
+      "ctrl-j": "workspace::ActivatePaneDown",
+    },
+  },
+  {
+    // Project tree keybinds
+    "context": "ProjectPanel && not_editing",
+    "bindings": {
+      "a": "project_panel::NewFile",
+      "A": "project_panel::NewDirectory",
+      "r": "project_panel::Rename",
+      "d": "project_panel::Delete",
+      "x": "project_panel::Cut",
+      "c": "project_panel::Copy",
+      "p": "project_panel::Paste",
+      "q": "workspace::ToggleRightDock",
+      "space space": "file_finder::Toggle",
+      "space e": "workspace::ToggleRightDock",
+      "ctrl-h": "workspace::ActivatePaneLeft",
+      "ctrl-l": "workspace::ActivatePaneRight",
+      "ctrl-k": "workspace::ActivatePaneUp",
+      "ctrl-j": "workspace::ActivatePaneDown",
+    },
+  },
+  {
+    "context": "GitPanel",
+    "bindings": {
+      "q": "workspace::ToggleRightDock",
+    },
+  },
+
+  // Unbinds
+  {
+    "context": "VimControl && !menu",
+    "unbind": {
+      "ctrl-g": "vim::ShowLocation",
+    },
+  },
+]
