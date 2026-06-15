@@ -104,6 +104,7 @@
     "hide_gitignore": false,
     "dock": "right",
     "auto_fold_dirs": false,
+    "auto_reveal_entries": true,
     "button": true,
     "git_status": true,
   },
