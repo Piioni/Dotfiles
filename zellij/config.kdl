@@ -30,6 +30,11 @@ keybinds clear-defaults=true {
         bind "Alt x" { CloseFocus; }
         bind "Alt w" { CloseTab; }
         bind "Alt f" { ToggleFloatingPanes; }
+        bind "Alt Shift f" {
+            Run "/usr/bin/fish" {
+                floating true
+            }
+        }
 
         // Ir a x tab
         bind "Alt 1" { GoToTab 1; }
