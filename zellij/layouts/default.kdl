@@ -2,7 +2,36 @@ layout {
     default_tab_template {
         children
         pane size=1 borderless=true {
-            plugin location="zellij:status-bar"
+            plugin location="file:/home/piioni/.config/zellij/zjstatus.wasm" {
+                format_left "{tabs}"
+                format_center ""
+                format_right "#[fg=#cdd6f4,bg=#1e1e2e] {session} {mode} "
+                format_space ""
+
+                border_enabled "false"
+                hide_frame_for_single_pane "false"
+
+                mode_normal "#[bg=#89b4fa,fg=#1e1e2e,bold] NORMAL "
+                mode_locked "#[bg=#a6e3a1,fg=#1e1e2e,bold] LOCKED "
+                mode_resize "#[bg=#f9e2af,fg=#1e1e2e,bold] RESIZE "
+                mode_pane "#[bg=#cba6f7,fg=#1e1e2e,bold] PANE "
+                mode_tab "#[bg=#f38ba8,fg=#1e1e2e,bold] TAB "
+                mode_scroll "#[bg=#fab387,fg=#1e1e2e,bold] SCROLL "
+                mode_session "#[bg=#94e2d5,fg=#1e1e2e,bold] SESSION "
+                mode_search "#[bg=#eba0ac,fg=#1e1e2e,bold] SEARCH "
+                mode_renamepane "#[bg=#b4befe,fg=#1e1e2e,bold] RENAME PANE "
+                mode_renametab "#[bg=#b4befe,fg=#1e1e2e,bold] RENAME TAB "
+                mode_move "#[bg=#f2cdcd,fg=#1e1e2e,bold] MOVE "
+
+                tab_normal "#[fg=#bac2de,bg=#1e1e2e] {index}:{name} "
+                tab_active "#[fg=#1e1e2e,bg=#89b4fa,bold] {index}:{name} "
+            }
+        }
+    }
+
+    swap_floating_layout {
+        floating_panes {
+            pane x="5%" y="5%" width="90%" height="90%"
         }
     }
 }
