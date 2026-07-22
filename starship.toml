@@ -1,197 +1,192 @@
 "$schema" = "https://starship.rs/config-schema.json"
 
-# Clean prompt: keep it compact and avoid extra blank lines.
-add_newline = false
+# Compact two-line prompt with Catppuccin Mocha colors.
+format = """\
+$directory\
+$git_branch\
+$git_state\
+$git_status\
+$fill\
+$nodejs\
+$bun\
+$dart\
+$python\
+$golang\
+$rust\
+$java\
+$kotlin\
+$lua\
+$php\
+$nix_shell\
+$aws\
+$azure\
+$docker_context\
+$kubernetes\
+$cmd_duration\
+$time\
+\n$character\
+"""
+
+add_newline = true
 scan_timeout = 30
-command_timeout = 500
+command_timeout = 1000
+palette = "catppuccin_mocha"
 
-[aws]
-symbol = "  "
-
-[buf]
-symbol = " "
-
-[bun]
-symbol = " "
-
-[c]
-symbol = " "
-
-[cpp]
-symbol = " "
-
-[cmake]
-symbol = " "
-
-[conda]
-symbol = " "
-
-[crystal]
-symbol = " "
-
-[dart]
-symbol = " "
-
-[deno]
-symbol = " "
+[fill]
+symbol = " "
 
 [directory]
+format = "[$path]($style)[$read_only]($read_only_style) "
+style = "bold fg:blue"
+read_only_style = "bold fg:red"
 read_only = " 󰌾"
+truncation_length = 2
+truncation_symbol = "…/"
+truncate_to_repo = true
 
-[docker_context]
-symbol = " "
-
-[elixir]
-symbol = " "
-
-[elm]
-symbol = " "
-
-[fennel]
-symbol = " "
-
-[fossil_branch]
-symbol = " "
-
-[gcloud]
-symbol = "  "
+[directory.substitutions]
+"Documents" = "󰈙 "
+"Downloads" = " "
+"Music" = "󰝚 "
+"Pictures" = " "
+"Developer" = "󰲋 "
+"Projects" = "󰲋 "
 
 [git_branch]
+format = "-> [$symbol$branch]($style) "
+style = "bold fg:mauve"
 symbol = " "
 
-[git_commit]
-tag_symbol = '  '
+[git_status]
+format = "[$all_status$ahead_behind]($style) "
+style = "fg:yellow"
+conflicted = "${count} "
+ahead = "⇡${count} "
+behind = "⇣${count} "
+diverged = "⇕${ahead_count}/${behind_count} "
+untracked = "?${count} "
+stashed = '≡${count} '
+modified = "!${count} "
+staged = "+${count} "
+renamed = "»${count} "
+deleted = "✘${count} "
 
-[golang]
-symbol = " "
-
-[guix_shell]
-symbol = " "
-
-[haskell]
-symbol = " "
-
-[haxe]
-symbol = " "
-
-[hg_branch]
-symbol = " "
-
-[hostname]
-ssh_symbol = " "
-
-[java]
-symbol = " "
-
-[julia]
-symbol = " "
-
-[kotlin]
-symbol = " "
-
-[lua]
-symbol = " "
-
-[memory_usage]
-symbol = "󰍛 "
-
-[meson]
-symbol = "󰔷 "
-
-[nim]
-symbol = "󰆥 "
-
-[nix_shell]
-symbol = " "
+[git_state]
+format = "[$state( $progress_current/$progress_total)]($style) "
+style = "fg:peach"
 
 [nodejs]
 symbol = " "
+format = "[$symbol($version)](fg:green) "
+version_format = "$raw"
 
-[ocaml]
-symbol = " "
+[bun]
+symbol = " "
+format = "[$symbol($version)](fg:peach) "
+version_format = "$raw"
 
-[os.symbols]
-Alpaquita = " "
-Alpine = " "
-AlmaLinux = " "
-Amazon = " "
-Android = " "
-Arch = " "
-Artix = " "
-CachyOS = " "
-CentOS = " "
-Debian = " "
-DragonFly = " "
-Emscripten = " "
-EndeavourOS = " "
-Fedora = " "
-FreeBSD = " "
-Garuda = "󰛓 "
-Gentoo = " "
-HardenedBSD = "󰞌 "
-Illumos = "󰈸 "
-Kali = " "
-Linux = " "
-Mabox = " "
-Macos = " "
-Manjaro = " "
-Mariner = " "
-MidnightBSD = " "
-Mint = " "
-NetBSD = " "
-NixOS = " "
-Nobara = " "
-OpenBSD = "󰈺 "
-openSUSE = " "
-OracleLinux = "󰌷 "
-Pop = " "
-Raspbian = " "
-Redhat = " "
-RedHatEnterprise = " "
-RockyLinux = " "
-Redox = "󰀘 "
-Solus = "󰠳 "
-SUSE = " "
-Ubuntu = " "
-Unknown = " "
-Void = " "
-Windows = "󰍲 "
-
-[package]
-symbol = "󰏗 "
-
-[perl]
-symbol = " "
-
-[php]
-symbol = " "
-
-[pijul_channel]
-symbol = " "
-
-[pixi]
-symbol = "󰏗 "
+[dart]
+symbol = " "
+format = "[$symbol($version)](fg:sky) "
+version_format = "$raw"
 
 [python]
 symbol = " "
+format = "[$symbol$pyenv_prefix($version)( $virtualenv)](fg:yellow) "
+version_format = "$raw"
 
-[rlang]
-symbol = "󰟔 "
-
-[ruby]
-symbol = " "
+[golang]
+symbol = " "
+format = "[$symbol($version)](fg:sky) "
+version_format = "$raw"
 
 [rust]
 symbol = "󱘗 "
+format = "[$symbol($version)](fg:peach) "
+version_format = "$raw"
 
-[scala]
-symbol = " "
+[java]
+symbol = " "
+format = "[$symbol($version)](fg:red) "
+version_format = "$raw"
 
-[swift]
-symbol = " "
+[kotlin]
+symbol = " "
+format = "[$symbol($version)](fg:mauve) "
+version_format = "$raw"
 
-[zig]
-symbol = " "
+[lua]
+symbol = " "
+format = "[$symbol($version)](fg:blue) "
+version_format = "$raw"
 
-[gradle]
-symbol = " "
+[php]
+symbol = " "
+format = "[$symbol($version)](fg:mauve) "
+version_format = "$raw"
+
+[nix_shell]
+symbol = " "
+format = "[$symbol$state( $name)](fg:lavender) "
+
+[aws]
+symbol = "  "
+format = "[$symbol($profile)(@$region)](fg:peach) "
+
+[azure]
+symbol = "󰠅 "
+format = "[$symbol($subscription)](fg:blue) "
+
+[docker_context]
+symbol = " "
+format = "[$symbol$context](fg:sky) "
+
+[kubernetes]
+symbol = "󱃾 "
+format = "[$symbol$context(::$namespace)](fg:teal) "
+disabled = false
+
+[cmd_duration]
+format = "took [$duration]($style) "
+style = "bold fg:yellow"
+min_time = 500
+
+[time]
+disabled = false
+time_format = "%R"
+format = "[ $time](fg:subtext0)"
+
+[character]
+success_symbol = "[❯](bold fg:green)"
+error_symbol = "[❯](bold fg:red)"
+vimcmd_symbol = "[❮](bold fg:green)"
+vimcmd_replace_one_symbol = "[R](bold fg:peach)"
+vimcmd_visual_symbol = "[V](bold fg:mauve)"
+
+[palettes.catppuccin_mocha]
+rosewater = "#f5e0dc"
+flamingo = "#f2cdcd"
+pink = "#f5c2e7"
+mauve = "#cba6f7"
+red = "#f38ba8"
+maroon = "#eba0ac"
+peach = "#fab387"
+yellow = "#f9e2af"
+green = "#a6e3a1"
+teal = "#94e2d5"
+sky = "#89dceb"
+sapphire = "#74c7ec"
+blue = "#89b4fa"
+lavender = "#b4befe"
+text = "#cdd6f4"
+subtext1 = "#bac2de"
+subtext0 = "#a6adc8"
+overlay2 = "#9399b2"
+overlay1 = "#7f849c"
+overlay0 = "#6c7086"
+surface2 = "#585b70"
+surface1 = "#45475a"
+surface0 = "#313244"
+base = "#1e1e2e"
+mantle = "#181825"
+crust = "#11111b"
