@@ -56,3 +56,15 @@
 
 !/zed/
 !/zed/**
+# Pi configuration and extensions
+!/.pi
+!/.pi/**
+/.pi/agent/sessions/
+/.pi/agent/extensions/*/node_modules/
+/.pi/agent/gentle-ai/
+/.pi/agent/npm/
+/.pi/npm/
+/.pi/gentle-ai/
+
+# Local Pi runtime state
+.atl/

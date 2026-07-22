@@ -1,3 +1,4 @@
+export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export XCURSOR_THEME="catppuccin-mocha-dark-cursors"
 export XCURSOR_SIZE="20"
 export ELECTRON_OZONE_PLATFORM_HINT="auto"
