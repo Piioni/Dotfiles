@@ -1,14 +1,17 @@
 layout {
     default_tab_template {
         children
-        pane size=1 borderless=true {
+        pane size=2 borderless=true {
             plugin location="file:/home/piioni/.config/zellij/zjstatus.wasm" {
                 format_left "{tabs}"
                 format_center ""
                 format_right "#[fg=#cdd6f4,bg=#1e1e2e] {session} {mode} "
                 format_space ""
 
-                border_enabled "false"
+                border_enabled "true"
+                border_char " "
+                border_format "#[bg=#1e1e2e]{char}"
+                border_position "top"
                 hide_frame_for_single_pane "false"
 
                 mode_normal "#[bg=#89b4fa,fg=#1e1e2e,bold] NORMAL "
