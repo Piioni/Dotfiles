@@ -1,14 +1,28 @@
-// Zed keymap
 [
+  // ============================================================
+  // Global (Workspace) — sin conflicto con vim
+  // ============================================================
   {
-    // Copy paste simulator
+    "context": "Workspace",
+    "bindings": {
+      "ctrl-s": "workspace::Save"
+    }
+  },
+
+  // ============================================================
+  // Editor — copy/paste siempre disponible
+  // ============================================================
+  {
     "context": "Editor",
     "bindings": {
       "ctrl-shift-c": "editor::Copy",
-      "ctrl-shift-v": "editor::Paste",
-    },
+      "ctrl-shift-v": "editor::Paste"
+    }
   },
 
+  // ============================================================
+  // Editor: space leader (normal + visual)
+  // ============================================================
   {
     "context": "Editor && (vim_mode == normal || vim_mode == visual) && !VimWaiting && !menu",
     "bindings": {
@@ -25,24 +39,29 @@
       "space f p": "projects::OpenRecent",
       "space s b": "buffer_search::Deploy",
       "space a c": "agent::ToggleFocus",
-      "space /": "pane::DeploySearch",
-    },
+      "space /": "pane::DeploySearch"
+    }
   },
 
+  // ============================================================
+  // Editor: vim normal — comandos de edicion y navegacion
+  // ============================================================
   {
     "context": "Editor && vim_mode == normal && !VimWaiting && !menu",
     "bindings": {
-      // Save / files / search
-      "ctrl-s": "workspace::Save",
+      // Archivos y busqueda
       "space space": "file_finder::Toggle",
       "space e": "pane::RevealInProjectPanel",
 
-      // Pane movement
+      // Pane
       "ctrl-w": "pane::CloseActiveItem",
       "ctrl-h": "workspace::ActivatePaneLeft",
       "ctrl-l": "workspace::ActivatePaneRight",
       "ctrl-k": "workspace::ActivatePaneUp",
       "ctrl-j": "workspace::ActivatePaneDown",
+
+      // Terminal
+      "ctrl-t": "workspace::NewTerminal",
 
       // LSP
       "space c a": "editor::ToggleCodeActions",
@@ -54,38 +73,53 @@
       "] d": "editor::GoToDiagnostic",
       "[ d": "editor::GoToPreviousDiagnostic",
 
-      // Git hunks
+      // Git
       "space g s": "git_panel::ToggleFocus",
-
       "] h": "editor::GoToHunk",
       "[ h": "editor::GoToPreviousHunk",
 
+      // Comentarios (agregado a normal mode)
+      "g c": "editor::ToggleComments",
+
       // Buffers
       "shift-h": "pane::ActivatePreviousItem",
-      "shift-l": "pane::ActivateNextItem",
-    },
+      "shift-l": "pane::ActivateNextItem"
+    }
   },
 
-  // Vim editor specifics
-  {
-    "context": "(Vimcontrol && !menu)",
-    "bindings": {
-      "space": null,
-    },
-  },
-  {
-    "context": "Editor && vim_mode == insert && !menu",
-    "bindings": {
-      "j j": "vim::NormalBefore",
-    },
-  },
+  // ============================================================
+  // Editor: vim visual — solo lo que difiere de normal
+  // ============================================================
   {
     "context": "Editor && vim_mode == visual && !VimWaiting && !menu",
     "bindings": {
-      "g c": "editor::ToggleComments",
-    },
+      "g c": "editor::ToggleComments"
+    }
   },
 
+  // ============================================================
+  // Editor: vim insert
+  // ============================================================
+  {
+    "context": "Editor && vim_mode == insert && !menu",
+    "bindings": {
+      "j j": "vim::NormalBefore"
+    }
+  },
+
+  // ============================================================
+  // VimControl: liberar space para vim (BUG FIX)
+  // ============================================================
+  {
+    "context": "VimControl && !menu",
+    "bindings": {
+      "space": null
+    }
+  },
+
+  // ============================================================
+  // Terminal
+  // ============================================================
   {
     "context": "Terminal",
     "bindings": {
@@ -94,11 +128,14 @@
       "ctrl-h": "workspace::ActivatePaneLeft",
       "ctrl-l": "workspace::ActivatePaneRight",
       "ctrl-k": "workspace::ActivatePaneUp",
-      "ctrl-j": "workspace::ActivatePaneDown",
-    },
+      "ctrl-j": "workspace::ActivatePaneDown"
+    }
   },
+
+  // ============================================================
+  // ProjectPanel — operaciones de archivo + navegacion
+  // ============================================================
   {
-    // Project tree keybinds
     "context": "ProjectPanel && not_editing",
     "bindings": {
       "a": "project_panel::NewFile",
@@ -110,25 +147,34 @@
       "p": "project_panel::Paste",
       "q": "workspace::ToggleRightDock",
       "space space": "file_finder::Toggle",
-      "space e": "workspace::ToggleRightDock",
       "ctrl-h": "workspace::ActivatePaneLeft",
       "ctrl-l": "workspace::ActivatePaneRight",
       "ctrl-k": "workspace::ActivatePaneUp",
-      "ctrl-j": "workspace::ActivatePaneDown",
-    },
+      "ctrl-j": "workspace::ActivatePaneDown"
+    }
   },
+
+  // ============================================================
+  // GitPanel — navegacion de panes agregada
+  // ============================================================
   {
     "context": "GitPanel",
     "bindings": {
       "q": "workspace::ToggleRightDock",
-    },
+      "ctrl-h": "workspace::ActivatePaneLeft",
+      "ctrl-l": "workspace::ActivatePaneRight",
+      "ctrl-k": "workspace::ActivatePaneUp",
+      "ctrl-j": "workspace::ActivatePaneDown"
+    }
   },
 
+  // ============================================================
   // Unbinds
+  // ============================================================
   {
     "context": "VimControl && !menu",
     "unbind": {
-      "ctrl-g": "vim::ShowLocation",
-    },
-  },
+      "ctrl-g": "vim::ShowLocation"
+    }
+  }
 ]
