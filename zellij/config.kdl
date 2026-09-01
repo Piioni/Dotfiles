@@ -6,6 +6,7 @@ env {
 }
 
 mouse_mode true
+osc8_hyperlinks true
 pane_frames false
 scrollback_editor "/usr/bin/nvim"
 theme "catppuccin-mocha"
