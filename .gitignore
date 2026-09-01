@@ -40,6 +40,14 @@
 !/zellij/
 !/zellij/**
 
+!/herdr/
+!/herdr/**
+/herdr/.plugins.lock
+/herdr/*.log
+/herdr/*.sock
+/herdr/release-notes.json
+/herdr/session.json
+
 !/btop/
 !/btop/**
 
@@ -56,6 +64,7 @@
 
 !/zed/
 !/zed/**
+
 # Pi configuration and extensions
 !/.pi
 !/.pi/**
