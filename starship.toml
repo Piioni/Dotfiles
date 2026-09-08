@@ -24,7 +24,7 @@ $docker_context\
 $kubernetes\
 $cmd_duration\
 $time\
-\n$character\
+\n\
 """
 
 add_newline = true
