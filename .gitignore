@@ -3,6 +3,9 @@
 !pkglist.md
 
 # Personal dotfiles
+!/agents/
+!/agents/**
+
 !/caelestia/
 !/caelestia/**
 
@@ -28,11 +31,16 @@
 !/kitty/
 !/kitty/**
 
-!/fastfetch/
-!/fastfetch/**
+!/ghostty/
+!/ghostty/**
 
 !/fish/
 !/fish/**
+
+!/nushell/
+!/nushell/**
+
+!/starship.toml
 
 !/yazi/
 !/yazi/**
@@ -51,7 +59,8 @@
 !/btop/
 !/btop/**
 
-!/starship.toml
+!/fastfetch/
+!/fastfetch/**
 
 !/lazygit/
 !/lazygit/**
