@@ -1,17 +1,10 @@
 [
-  // ============================================================
-  // Global (Workspace) — sin conflicto con vim
-  // ============================================================
   {
     "context": "Workspace",
     "bindings": {
       "ctrl-s": "workspace::Save"
     }
   },
-
-  // ============================================================
-  // Editor — copy/paste siempre disponible
-  // ============================================================
   {
     "context": "Editor",
     "bindings": {
@@ -19,162 +12,110 @@
       "ctrl-shift-v": "editor::Paste"
     }
   },
-
-  // ============================================================
-  // Editor: space leader (normal + visual)
-  // ============================================================
   {
-    "context": "Editor && (vim_mode == normal || vim_mode == visual) && !VimWaiting && !menu",
+    "context": "VimControl && (vim_mode == normal || vim_mode == visual) && !menu",
     "bindings": {
-      // Toggles
+      "ctrl-h": "workspace::ActivatePaneLeft",
+      "ctrl-j": "workspace::ActivatePaneDown",
+      "ctrl-k": "workspace::ActivatePaneUp",
+      "ctrl-l": "workspace::ActivatePaneRight",
       "space t": "terminal_panel::Toggle",
+      "space p": "project_panel::ToggleFocus",
+      "space e": "pane::RevealInProjectPanel",
+      "space g s": "git_panel::ToggleFocus",
       "space u g": "project_panel::ToggleHideGitIgnore",
-      "space h": "workspace::ToggleLeftDock",
-
-      // Markdown
-      "space m p": "markdown::OpenPreview",
-      "space m P": "markdown::OpenPreviewToTheSide",
-
-      // Files / search / AI
+      "space space": "file_finder::Toggle",
       "space f p": "projects::OpenRecent",
       "space s b": "buffer_search::Deploy",
-      "space a c": "agent::ToggleFocus",
-      "space /": "pane::DeploySearch"
-    }
-  },
-
-  // ============================================================
-  // Editor: vim normal — comandos de edicion y navegacion
-  // ============================================================
-  {
-    "context": "Editor && vim_mode == normal && !VimWaiting && !menu",
-    "bindings": {
-      // Archivos y busqueda
-      "space space": "file_finder::Toggle",
-      "space e": "pane::RevealInProjectPanel",
-
-      // Pane
-      "ctrl-w": "pane::CloseActiveItem",
-      "ctrl-h": "workspace::ActivatePaneLeft",
-      "ctrl-l": "workspace::ActivatePaneRight",
-      "ctrl-k": "workspace::ActivatePaneUp",
-      "ctrl-j": "workspace::ActivatePaneDown",
-
-      // Terminal
-      "ctrl-t": "workspace::NewTerminal",
-
-      // LSP
+      "space /": "pane::DeploySearch",
+      "space q": "pane::CloseActiveItem",
+      "space m p": "markdown::OpenPreview",
+      "space m shift-p": "markdown::OpenPreviewToTheSide",
       "space c a": "editor::ToggleCodeActions",
       "space c r": "editor::Rename",
+      "g c": "editor::ToggleComments"
+    }
+  },
+  {
+    "context": "VimControl && vim_mode == normal && !menu",
+    "bindings": {
+      "ctrl-t": "workspace::NewTerminal",
       "g d": "editor::GoToDefinition",
       "g i": "editor::GoToImplementation",
       "g t": "editor::GoToTypeDefinition",
       "g r": "editor::FindAllReferences",
       "] d": "editor::GoToDiagnostic",
       "[ d": "editor::GoToPreviousDiagnostic",
-
-      // Git
-      "space g s": "git_panel::ToggleFocus",
       "] h": "editor::GoToHunk",
       "[ h": "editor::GoToPreviousHunk",
-
-      // Comentarios (agregado a normal mode)
-      "g c": "editor::ToggleComments",
-
-      // Buffers
       "shift-h": "pane::ActivatePreviousItem",
       "shift-l": "pane::ActivateNextItem"
     }
   },
-
-  // ============================================================
-  // Editor: vim visual — solo lo que difiere de normal
-  // ============================================================
-  {
-    "context": "Editor && vim_mode == visual && !VimWaiting && !menu",
-    "bindings": {
-      "g c": "editor::ToggleComments"
-    }
-  },
-
-  // ============================================================
-  // Editor: vim insert
-  // ============================================================
   {
     "context": "Editor && vim_mode == insert && !menu",
     "bindings": {
       "j j": "vim::NormalBefore"
     }
   },
-
-  // ============================================================
-  // VimControl: liberar space para vim (BUG FIX)
-  // ============================================================
   {
     "context": "VimControl && !menu",
     "bindings": {
-      "space": null
+      "ctrl-g": null
     }
   },
-
-  // ============================================================
-  // Terminal
-  // ============================================================
   {
-    "context": "Terminal",
+    "context": "EmptyPane && !menu",
+    "bindings": {
+      "ctrl-h": "workspace::ActivatePaneLeft",
+      "ctrl-j": "workspace::ActivatePaneDown",
+      "ctrl-k": "workspace::ActivatePaneUp",
+      "ctrl-l": "workspace::ActivatePaneRight",
+      "space space": "file_finder::Toggle",
+      "space p": "project_panel::ToggleFocus",
+      "space g s": "git_panel::ToggleFocus",
+      "space t": "terminal_panel::Toggle",
+      "space f p": "projects::OpenRecent",
+      "space /": "pane::DeploySearch"
+    }
+  },
+  {
+    "context": "Terminal && !menu",
     "bindings": {
       "ctrl-w": "pane::CloseActiveItem",
       "ctrl-t": "workspace::NewTerminal",
       "ctrl-h": "workspace::ActivatePaneLeft",
-      "ctrl-l": "workspace::ActivatePaneRight",
+      "ctrl-j": "workspace::ActivatePaneDown",
       "ctrl-k": "workspace::ActivatePaneUp",
-      "ctrl-j": "workspace::ActivatePaneDown"
+      "ctrl-l": "workspace::ActivatePaneRight"
     }
   },
-
-  // ============================================================
-  // ProjectPanel — operaciones de archivo + navegacion
-  // ============================================================
   {
-    "context": "ProjectPanel && not_editing",
+    "context": "ProjectPanel && not_editing && !menu",
     "bindings": {
       "a": "project_panel::NewFile",
-      "A": "project_panel::NewDirectory",
+      "shift-a": "project_panel::NewDirectory",
       "r": "project_panel::Rename",
       "d": "project_panel::Delete",
       "x": "project_panel::Cut",
       "c": "project_panel::Copy",
       "p": "project_panel::Paste",
-      "q": "workspace::ToggleRightDock",
+      "q": "project_panel::ToggleFocus",
       "space space": "file_finder::Toggle",
       "ctrl-h": "workspace::ActivatePaneLeft",
-      "ctrl-l": "workspace::ActivatePaneRight",
+      "ctrl-j": "workspace::ActivatePaneDown",
       "ctrl-k": "workspace::ActivatePaneUp",
-      "ctrl-j": "workspace::ActivatePaneDown"
+      "ctrl-l": "workspace::ActivatePaneRight"
     }
   },
-
-  // ============================================================
-  // GitPanel — navegacion de panes agregada
-  // ============================================================
   {
-    "context": "GitPanel",
+    "context": "GitPanel && !menu",
     "bindings": {
-      "q": "workspace::ToggleRightDock",
+      "q": "git_panel::ToggleFocus",
       "ctrl-h": "workspace::ActivatePaneLeft",
-      "ctrl-l": "workspace::ActivatePaneRight",
+      "ctrl-j": "workspace::ActivatePaneDown",
       "ctrl-k": "workspace::ActivatePaneUp",
-      "ctrl-j": "workspace::ActivatePaneDown"
-    }
-  },
-
-  // ============================================================
-  // Unbinds
-  // ============================================================
-  {
-    "context": "VimControl && !menu",
-    "unbind": {
-      "ctrl-g": "vim::ShowLocation"
+      "ctrl-l": "workspace::ActivatePaneRight"
     }
   }
 ]
