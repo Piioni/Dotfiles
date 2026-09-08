@@ -1,0 +1,22 @@
+# Ghostty configuration
+# Catppuccin Mocha palette with Nushell as the default shell.
+
+theme = Catppuccin Mocha
+background = #1A1A27
+font-family = Maple Mono NF
+font-size = 11
+
+command = /home/piioni/.cargo/bin/nu
+shell-integration = detect
+
+cursor-style = block
+cursor-style-blink = false
+background-opacity = 1
+background-blur = false
+
+window-padding-x = 14
+window-padding-y = 14
+window-padding-balance = true
+window-decoration = true
+window-theme = dark
+confirm-close-surface = false
