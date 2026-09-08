@@ -12,7 +12,7 @@ surface_dim = "#45475A" # Surface1
 
 [ui]
 agent_panel_sort = "priority"
-status_indicators = "symbols"
+status_indicators = "dots"
 show_agent_labels_on_pane_borders = true
 
 [ui.sidebar.agents]
