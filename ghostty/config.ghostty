@@ -8,6 +8,7 @@ font-size = 11
 
 command = /home/piioni/.cargo/bin/nu
 shell-integration = detect
+mouse-scroll-multiplier = 1
 
 cursor-style = block
 cursor-style-blink = false

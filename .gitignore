@@ -39,6 +39,7 @@
 
 !/nushell/
 !/nushell/**
+/nushell/history.txt
 
 !/starship.toml
 
