@@ -70,7 +70,7 @@ export default class Linear extends View {
     this.data = {};
     this.states = [];
     this.me = remembered("me", null);
-    this.input = InputState.new({ placeholder: "Filter issues" });
+    this.input = InputState.new({ placeholder: "Search" });
     this.input.on("change", (_e, cx) => { this.query = this.input.value(); this.find(cx); cx.notify(); });
     this.input.on("focus", (_e, cx) => { this.typing = true; cx.notify(); });
     this.input.on("blur", (_e, cx) => { this.typing = false; cx.notify(); });
@@ -179,10 +179,11 @@ export default class Linear extends View {
         .child(div().size(14).when(this.icons, (e) => e.child(svg(icon("task")).size(14)))).child("Issues"));
   }
 
-  segment(id, label, on, t, onClick) {
-    return div().id(id).h(24).px(9).flex().items_center().rounded(6).text_size(12).cursor_pointer()
-      .bg(on ? t.selected : t.background).text_color(on ? t.foreground : t.muted).when(on, (e) => e.font_semibold())
-      .hover((s) => s.bg(on ? t.selected : t.hover)).on_click(onClick).child(label);
+  // A tab of the header: the active one is underlined with the accent.
+  tab(id, t, on, onClick, ...kids) {
+    return h_flex().id(id).h_full().px(8).gap(6).flex_none().items_center().text_size(13).cursor_pointer()
+      .border_b(2).border_color(on ? t.accent : "#00000000").text_color(on ? t.foreground : t.muted).when(on, (e) => e.font_semibold())
+      .hover((s) => s.text_color(t.foreground)).on_click(onClick).children(kids.filter(Boolean));
   }
 
   pill(id, t, color, ...kids) {
@@ -486,27 +487,24 @@ export default class Linear extends View {
     }
     const empty = !entry ? (this.error?.message ?? "Loading issues…") : term ? (this.looking ? "Searching…" : "No issues match") : "Nothing here";
     return shell
-      .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
-        .child(div().size(14).flex_none().when(this.icons, (e) => e.child(svg(icon("task")).size(14).text_color(t.ansi2))))
-        .child(div().font_semibold().child("Issues"))
-        .child(div().id("linear-filter").w(150).min_w(0).h(26).px(9).flex().items_center().rounded(7).border_1().border_color(this.typing ? t.accent : t.border).cursor_text()
-          .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).child(Input.new(this.input).h_full().text_size(12).text_color(t.foreground)))
+      .child(h_flex().h(42).flex_none().px(8).gap(8).items_center().border_b(1).border_color(t.border)
+        .child(h_flex().h_full().flex_none().min_w(0).gap(2)
+          .child(this.tab("source-mine", t, this.scope === MINE, () => setShared(SOURCE, MINE), "My issues"))
+          .child(this.tab("source-views", t, Boolean(current), () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 300, height: this.viewsHeight(), props: { menu: "views" } }),
+            current ? div().size(8).flex_none().rounded(4).bg(current.color ?? t.dim) : null,
+            div().min_w(0).max_w(130).truncate().child(current ? current.name : "Views"),
+            div().size(12).flex_none().when(this.icons, (e) => e.child(svg(icon("chev-d")).size(12))))))
         .child(div().flex_1())
-        .child(div().id("linear-refresh").size(26).flex_none().flex().items_center().justify_center().rounded(7).border_1().border_color(t.border).text_color(t.muted)
+        .child(div().id("linear-filter").w(120).min_w(60).h(28).px(9).flex().items_center().rounded(7).border_1().border_color(this.typing ? t.accent : t.border).cursor_text()
+          .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).child(Input.new(this.input).h_full().text_size(12).text_color(t.foreground)))
+        .child(div().id("linear-refresh").size(28).flex_none().flex().items_center().justify_center().rounded(7).border_1().border_color(t.border).text_color(t.muted)
           .cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click((_e, cx) => this.refresh(cx))
           .tooltip(entry ? `Refresh · updated ${age(new Date(entry.at).toISOString())} ago` : "Refresh")
           .child(this.loading || this.looking
             ? svg("mods/workspace-chrome/spinner.svg").size(12).text_color(t.working).spin(900)
-            : div().size(12).when(this.icons, (e) => e.child(svg(icon("refresh")).size(12))))))
+            : div().size(12).when(this.icons, (e) => e.child(svg(icon("refresh")).size(12)))))
+        .child(this.iconButton("open-view", "sliders", "Display options", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 320, height: VIEW_HEIGHT, props: { menu: "view" } }), t)))
       .when(this.error && entry, (e) => e.child(div().flex_none().px(14).py(6).text_size(11).text_color(t.ansi1).border_b(1).border_color(t.border).truncate().child(this.error.message)))
-      .child(v_flex().flex_none().p(8).gap(6).border_b(1).border_color(t.border)
-        .child(h_flex().gap(6).items_center()
-          .child(h_flex().flex_none().min_w(0).p(2).gap(2).rounded(8).border_1().border_color(t.border)
-            .child(this.segment("source-mine", "My issues", this.scope === MINE, t, () => setShared(SOURCE, MINE)))
-            .child(this.segment("source-views", `${current ? current.name.slice(0, 24) : "Views"} ▾`, Boolean(current), t,
-              () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 300, height: this.viewsHeight(), props: { menu: "views" } }))))
-          .child(div().flex_1())
-          .child(this.iconButton("open-view", "sliders", "Display options", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 320, height: VIEW_HEIGHT, props: { menu: "view" } }), t))))
       .child(v_flex().id("linear-list").flex_1().min_h(0).overflow_y_scrollbar().p(6).gap(6)
         .children(groups.map((g) => this.groupView(g, view, t)))
         .when(!groups.length, (e) => e.child(div().px(16).py(28).text_size(12).text_center().text_color(this.error ? t.ansi1 : t.dim).child(empty))));
