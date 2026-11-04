@@ -220,36 +220,61 @@
               "max": 900,
               "children": [
                 {
-                  "id": "panel-bar",
-                  "type": "block",
-                  "size": {
-                    "px": 38
-                  },
-                  "content": {
-                    "mod": "relevo",
-                    "props": {
-                      "role": "panel-bar"
-                    }
-                  }
-                },
-                {
                   "id": "panel-body",
                   "type": "stack",
                   "active": "issues",
                   "children": [
                     {
                       "id": "files",
-                      "type": "block",
-                      "content": {
-                        "mod": "relevo-files"
-                      }
+                      "type": "column",
+                      "children": [
+                        {
+                          "id": "files-bar",
+                          "type": "block",
+                          "size": {
+                            "px": 38
+                          },
+                          "content": {
+                            "mod": "relevo",
+                            "props": {
+                              "role": "panel-bar"
+                            }
+                          }
+                        },
+                        {
+                          "id": "files-body",
+                          "type": "block",
+                          "content": {
+                            "mod": "relevo-files"
+                          }
+                        }
+                      ]
                     },
                     {
                       "id": "changes",
-                      "type": "block",
-                      "content": {
-                        "mod": "relevo-changes"
-                      }
+                      "type": "column",
+                      "children": [
+                        {
+                          "id": "changes-bar",
+                          "type": "block",
+                          "size": {
+                            "px": 38
+                          },
+                          "content": {
+                            "mod": "relevo",
+                            "props": {
+                              "role": "panel-bar"
+                            }
+                          }
+                        },
+                        {
+                          "id": "changes-body",
+                          "type": "block",
+                          "content": {
+                            "mod": "relevo-changes"
+                          }
+                        }
+                      ]
                     },
                     {
                       "id": "prs",
