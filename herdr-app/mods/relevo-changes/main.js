@@ -52,10 +52,7 @@ export default class Changes extends View {
   refresh(cx) {
     if (this.loading || this.busy) return;
     const { cwd, on } = location(), context = key();
-    if (context !== this.context) {
-      this.context = context; this.root = null; this.files = []; this.open = null; this.collapsed = new Set();
-      this.message = ""; this.input.set_value(""); this.error = null; this.note = null; this.watched = null; this.limited = false;
-    }
+    this.context = context;
     if (!cwd) return;
     this.loading = true;
     cx.spawn(async (cx) => {
@@ -64,6 +61,10 @@ export default class Changes extends View {
         if (key() !== context) return;
         if (top.code !== 0) { this.root = null; this.files = []; this.open = null; this.error = "Not a git repository"; return; }
         const root = top.stdout.trim(), git = (args) => exec("git", [...READ, ...args], { cwd: root, on });
+        // Focus moving to another pane (a new diff tab, say) is not a new repo: keep what the person set up.
+        if (root !== this.root || on !== this.on) {
+          this.files = []; this.open = null; this.collapsed = new Set(); this.message = ""; this.input.set_value(""); this.note = null; this.limited = false;
+        }
         const status = await git(["status", "--porcelain=v1", "-z", "--no-renames", "--untracked-files=all"]);
         if (status.code !== 0) throw new Error(status.stderr);
         const head = await git(["rev-parse", "--verify", "HEAD"]);
