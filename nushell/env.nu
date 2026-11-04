@@ -13,6 +13,8 @@ $env.XDG_CACHE_HOME = ($nu.home-dir | path join ".cache")
 # Tool binaries.
 use std/util "path add"
 path add "~/.cargo/bin"
+path add "~/.bun/bin"
+path add "~/.cache/.bun/bin"
 path add "~/fvm/bin"
 path add "~/.pub-cache/bin"
 
