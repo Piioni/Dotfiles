@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalize, group, matches, counts, age, prepare, facets, hasFilter, groupMetas, moveKey, DEFAULT_VIEW } from "../model.js";
+import { normalize, group, matches, counts, age, prepare, groupMetas, moveKey, DEFAULT_VIEW } from "../model.js";
 
 const raw = (id, over = {}) => ({
   identifier: id, title: `Task ${id}`, url: `https://linear.app/x/issue/${id}`, branchName: id.toLowerCase(), priority: 2,
@@ -119,7 +119,7 @@ test("completed window: none hides finished tasks, week keeps only recent ones",
   const done = { name: "Done", type: "completed", color: "#0f0", position: 9 };
   const now = Date.parse("2026-11-04T00:00:00Z");
   const all = [task("A-1"), task("A-2", { state: done, completedAt: "2026-11-02T00:00:00Z" }), task("A-3", { state: done, completedAt: "2026-09-20T00:00:00Z" })];
-  const kept = (completed) => prepare(all, view({ completed }), undefined, now).map((t) => t.id);
+  const kept = (completed) => prepare(all, view({ completed }), now).map((t) => t.id);
   assert.deepEqual([kept("none"), kept("week"), kept("month")], [["A-1"], ["A-1", "A-2"], ["A-1", "A-2"]]);
 });
 
@@ -134,22 +134,6 @@ test("empty groups list every status of the workflow and every priority", () => 
   assert.deepEqual(withEmpty.map((g) => [g.name, g.count]), [["In Progress", 1], ["Todo", 0], ["Done", 0]]);
   assert.equal(group([task("A-1")], { view: view({ grouping: "priority", empty: true }) }).length, 5);
   assert.equal(group([task("A-1")], { view: view() }).length, 1);
-});
-
-test("filters combine across fields and match any value within one", () => {
-  const all = [task("A-1", { priority: 1, team: { key: "POS" } }), task("A-2", { priority: 2, team: { key: "AID" } }), task("A-3", { priority: 1, team: { key: "AID" } })];
-  const pick = (f) => prepare(all, DEFAULT_VIEW, f).map((t) => t.id);
-  assert.deepEqual(pick({ priority: [1] }), ["A-1", "A-3"]);
-  assert.deepEqual(pick({ priority: [1], team: ["AID"] }), ["A-3"]);
-  assert.deepEqual(pick({ priority: [1, 2] }), ["A-1", "A-2", "A-3"]);
-  assert.ok(hasFilter({ team: ["AID"] }) && !hasFilter({}));
-});
-
-test("facets count each value; projects and assignees count None", () => {
-  const all = [task("A-1", { project: { name: "P", color: "#0f0" }, assignee: { name: "Ana", displayName: "ana" } }), task("A-2", { priority: 1 }), task("A-3")];
-  const f = facets(all.map((t) => t));
-  assert.deepEqual(f.project.map((p) => [p.name, p.count]), [["(none)", 2], ["P", 1]]);
-  assert.deepEqual(f.priority.map((p) => [p.label, p.count]), [["Urgent", 1], ["High", 2]]);
 });
 
 test("a custom group order wins, the groups never placed follow in the default order", () => {

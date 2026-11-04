@@ -4,7 +4,7 @@ import { exec, run, layout, theme, notify, props, appHome, home, shared, setShar
 import * as fs from "fs/promises";
 import { readToken, viewer, fetchTasks, SCOPE_NAMES, LinearError } from "./api.js";
 import {
-  normalize, prepare, group, groupMetas, moveKey, counts, facets, hasFilter, CHIPS, GROUPINGS, ORDERS, COMPLETED, DEFAULT_VIEW, DEFAULT_FILTER, DEFAULT_ORDER, age, isFinished,
+  normalize, prepare, group, groupMetas, moveKey, counts, CHIPS, GROUPINGS, ORDERS, COMPLETED, DEFAULT_VIEW, DEFAULT_ORDER, age, isFinished,
 } from "./model.js";
 import { icons, icon, statusIcon, statusName, priorityIcon } from "./icons.js";
 
@@ -13,15 +13,13 @@ const DONE_ROWS = 5;
 const SCOPE_LABEL = { assigned: "Assigned", created: "Created", subscribed: "Subscribed" };
 // Popups take their height from the root element: a percentage of an unsized popup is zero.
 const VIEW_HEIGHT = 405;
-const FILTERS = [["priority", "Priority"], ["team", "Team"], ["project", "Project"], ["assignee", "Assignee"], ["label", "Label"]];
 const SAVE_KEY = `input -s "Linear key: " | save -f ~/.config/linear/token; chmod 600 ~/.config/linear/token`;
 const tokenPath = () => `${home()}/.config/linear/token`;
 const cachePath = () => `${appHome()}/data/linear/cache.json`;
 
-// What the display options and the filter hold, shared so the panel and its popups agree.
-const VIEW = "issues.view", FILTER = "issues.filter", FACETS = "issues.facets", ORDER = "issues.groupOrder", GROUPS = "issues.groups";
+// What the display options hold, shared so the panel and its popups agree.
+const VIEW = "issues.view", ORDER = "issues.groupOrder", GROUPS = "issues.groups";
 const viewOf = () => ({ ...DEFAULT_VIEW, ...(shared(VIEW) ?? {}) });
-const filterOf = () => ({ ...DEFAULT_FILTER, ...(shared(FILTER) ?? {}) });
 // The order and hidden groups the person set, per way of grouping.
 const orderOf = (grouping) => ({ ...DEFAULT_ORDER, ...((shared(ORDER) ?? {})[grouping] ?? {}) });
 
@@ -74,18 +72,10 @@ export default class Linear extends View {
       const saved = await fs.readFile(cachePath(), "utf8").then(JSON.parse).catch(() => ({}));
       this.states = saved.states ?? [];
       for (const [scope, d] of Object.entries(saved.scopes ?? {})) this.data[scope] ??= d;
-      this.publish(); cx.notify();
+      cx.notify();
       await this.refresh(cx);
     });
     cx.timer.every(REFRESH, (cx) => { if (!hidden()) this.refresh(cx); });
-  }
-
-  // The filter popup lists what the current tasks have.
-  publish() {
-    const tasks = this.data[this.scope]?.tasks;
-    if (!tasks) return;
-    const next = facets(tasks);
-    if (JSON.stringify(next) !== JSON.stringify(shared(FACETS))) setShared(FACETS, next);
   }
 
   // The ordering popup lists the groups the panel is showing; published after the render, only when they change.
@@ -107,7 +97,6 @@ export default class Linear extends View {
       this.error = null;
       await fs.mkdir(`${appHome()}/data/linear`, { recursive: true });
       await fs.writeFile(cachePath(), JSON.stringify({ scopes: this.data, states }));
-      if (scope === this.scope) this.publish();
     } catch (e) {
       this.error = e instanceof LinearError ? { kind: e.kind, message: e.message } : { kind: "net", message: "Couldn't reach Linear" };
     } finally {
@@ -116,7 +105,7 @@ export default class Linear extends View {
   }
 
   setScope(scope, cx) {
-    this.scope = scope; keep("scope", scope); this.more.clear(); this.publish();
+    this.scope = scope; keep("scope", scope); this.more.clear();
     if (!this.data[scope] || Date.now() - this.data[scope].at > REFRESH) this.refresh(cx, scope);
     cx.notify();
   }
@@ -241,13 +230,7 @@ export default class Linear extends View {
       .when(this.icons, (e) => e.child(svg(icon(glyph)).size(14)));
   }
 
-  // ---- popups: display options and filter ----
-
-  // As tall as its sections need, up to what fits the window.
-  filterHeight() {
-    const facet = shared(FACETS) ?? {}, sections = FILTERS.filter(([k]) => facet[k]?.length);
-    return Math.min(540, 70 + sections.length * 36 + sections.reduce((n, [k]) => n + facet[k].length * 30, 0));
-  }
+  // ---- popup: display options ----
 
   setView(patch) { setShared(VIEW, { ...viewOf(), ...patch }); }
 
@@ -394,52 +377,19 @@ export default class Linear extends View {
           : "Drag a row onto another, or use the arrows. The eye hides a group."));
   }
 
-  toggleFilter(field, value) {
-    const f = filterOf(), list = f[field], next = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
-    setShared(FILTER, { ...f, [field]: next });
-  }
-
-  filterMenu(t) {
-    const f = filterOf(), facet = shared(FACETS) ?? {};
-    const section = ([field, title]) => {
-      const values = facet[field] ?? [];
-      if (!values.length) return [];
-      return [h_flex().pt(10).pb(4).px(4).gap(6).items_center().text_size(11).font_semibold().text_color(t.dim).child(title)
-          .when(f[field].length > 0, (e) => e.child(div().px(6).rounded(8).bg(t.accent).text_color("#ffffff").text_size(10).child(String(f[field].length)))),
-        ...values.map((v) => {
-          const value = field === "priority" ? Number(v.name) : v.name, on = f[field].includes(value);
-          return h_flex().id(`flt-${field}-${v.name}`).h(30).px(6).gap(10).flex_none().items_center().rounded(7).cursor_pointer()
-            .bg(on ? t.selected : t.popover).hover((s) => s.bg(on ? t.selected : t.hover)).on_click(() => this.toggleFilter(field, value))
-            .child(h_flex().size(16).flex_none().items_center().justify_center().rounded(5).border_1().border_color(on ? t.accent : t.border).bg(on ? t.accent : t.popover)
-              .when(on, (e) => e.child(this.glyph("check", 12, "#ffffff"))))
-            .when(field === "priority", (e) => e.child(this.glyph(`p${v.name}`, 14, Number(v.name) === 1 ? t.ansi3 : t.dim)))
-            .when(Boolean(v.color), (e) => e.child(div().size(8).flex_none().rounded(4).bg(v.color)))
-            .child(div().flex_1().min_w(0).truncate().text_size(13).child(v.label ?? v.name))
-            .child(div().text_size(11).text_color(t.dim).child(String(v.count)));
-        })];
-    };
-    const any = hasFilter(f);
-    return v_flex().id("issues-filter-menu").w_full().h(this.filterHeight()).overflow_y_scrollbar().px(10).py(10).gap(1).bg(t.popover).text_color(t.foreground)
-      .child(h_flex().px(4).pb(2).items_center().child(div().flex_1().text_size(12).font_semibold().text_color(t.dim).child("Filter issues"))
-        .child(div().id("clear-filter").text_size(12).text_color(any ? t.accent : t.dim).when(any, (e) => e.cursor_pointer().hover((s) => s.underline()).on_click(() => setShared(FILTER, null))).child("Clear")))
-      .children(FILTERS.flatMap(section))
-      .when(!Object.keys(facet).length, (e) => e.child(div().pt(10).text_size(12).text_color(t.muted).child("Loading…")));
-  }
-
   render(cx) {
     const t = theme();
     if (this.menu === "view") return this.viewMenu(t);
-    if (this.menu === "filter") return this.filterMenu(t);
     if (this.button) return this.toolbar(t);
     const shell = v_flex().id("linear").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13);
     const entry = this.data[this.scope];
     if (!entry && this.error && ["token", "auth"].includes(this.error.kind)) return shell.child(this.connect(t));
-    const view = viewOf(), filter = filterOf();
-    const tasks = prepare(entry?.tasks ?? [], view, filter), c = counts(tasks);
+    const view = viewOf();
+    const tasks = prepare(entry?.tasks ?? [], view), c = counts(tasks);
     const order = orderOf(view.grouping);
     const groups = group(tasks, { query: this.query, chip: this.chip, view, states: this.states, order });
     this.publishGroups(tasks, view, order, cx);
-    const empty = !entry ? (this.error?.message ?? "Loading issues…") : this.query.trim() || hasFilter(filter) ? "No issues match" : "Nothing here";
+    const empty = !entry ? (this.error?.message ?? "Loading issues…") : this.query.trim() ? "No issues match" : "Nothing here";
     return shell
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().size(14).flex_none().when(this.icons, (e) => e.child(svg(icon("task")).size(14).text_color(t.ansi2))))
@@ -457,7 +407,6 @@ export default class Linear extends View {
           .child(h_flex().flex_none().p(2).gap(2).rounded(8).border_1().border_color(t.border)
             .children(SCOPE_NAMES.map((s) => this.segment(`scope-${s}`, SCOPE_LABEL[s], this.scope === s, t, (_e, cx) => this.setScope(s, cx)))))
           .child(div().flex_1())
-          .child(this.iconButton("open-filter", "filter", "Filter", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 280, height: this.filterHeight(), props: { menu: "filter" } }), t))
           .child(this.iconButton("open-view", "sliders", "Display options", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 320, height: VIEW_HEIGHT, props: { menu: "view" } }), t)))
         .child(div().id("linear-filter").h(28).px(9).flex().items_center().rounded(7).border_1().border_color(this.typing ? t.accent : t.border).cursor_text()
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).child(Input.new(this.input).h_full().text_size(12).text_color(t.foreground)))

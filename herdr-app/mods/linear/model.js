@@ -24,8 +24,6 @@ export const DEFAULT_VIEW = {
   grouping: "status", sub: "none", order: "priority", reverse: false, completed: "month",
   subIssues: true, triage: true, nested: true, empty: false,
 };
-export const DEFAULT_FILTER = { priority: [], project: [], label: [], team: [], assignee: [] };
-export const NONE = "(none)";
 
 const PULL = /\/pull\/(\d+)/;
 
@@ -56,40 +54,15 @@ export function matches(task, query, chip) {
 export const counts = (tasks) => Object.fromEntries(Object.entries(CHIPS).map(([key, c]) =>
   [key, tasks.filter((t) => !c.types || c.types.includes(t.state.type)).length]));
 
-export const hasFilter = (f) => Object.values({ ...DEFAULT_FILTER, ...f }).some((list) => list.length > 0);
-
-function passes(t, f) {
-  const has = (list, v) => !list.length || list.includes(v);
-  return has(f.priority, t.priority) && has(f.team, t.team) && has(f.project, t.project?.name ?? NONE)
-    && has(f.assignee, t.assignee ?? NONE) && (!f.label.length || t.labels.some((l) => f.label.includes(l.name)));
-}
-
-// What the display options and the filter leave of the tasks, before chips and the text query.
-export function prepare(tasks, view = DEFAULT_VIEW, filter = DEFAULT_FILTER, now = Date.now()) {
-  const f = { ...DEFAULT_FILTER, ...filter }, span = { none: 0, week: 7 * DAY, month: 30 * DAY }[view.completed] ?? 30 * DAY;
+// What the display options leave of the tasks, before chips and the text query.
+export function prepare(tasks, view = DEFAULT_VIEW, now = Date.now()) {
+  const span = { none: 0, week: 7 * DAY, month: 30 * DAY }[view.completed] ?? 30 * DAY;
   return tasks.filter((t) => {
     if (isFinished(t.state.type) && (!span || now - Date.parse(t.completedAt ?? t.updatedAt) > span)) return false;
     if (!view.subIssues && t.parent) return false;
     if (!view.triage && t.state.type === "triage") return false;
-    return passes(t, f);
+    return true;
   });
-}
-
-// The values a filter can pick, with how many tasks each has.
-export function facets(tasks) {
-  const tally = (pick) => {
-    const m = new Map();
-    for (const t of tasks) for (const v of pick(t)) m.set(v.name, { ...v, count: (m.get(v.name)?.count ?? 0) + 1 });
-    return [...m.values()];
-  };
-  const byName = (a, b) => a.name.localeCompare(b.name);
-  return {
-    priority: tally((t) => [{ name: String(t.priority), label: PRIORITIES[t.priority] }]).sort((a, b) => (+a.name || 5) - (+b.name || 5)),
-    team: tally((t) => (t.team ? [{ name: t.team }] : [])).sort(byName),
-    project: tally((t) => [{ name: t.project?.name ?? NONE, color: t.project?.color }]).sort(byName),
-    assignee: tally((t) => [{ name: t.assignee ?? NONE }]).sort(byName),
-    label: tally((t) => t.labels.map((l) => ({ name: l.name, color: l.color }))).sort(byName),
-  };
 }
 
 const KEYERS = {
