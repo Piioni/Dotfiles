@@ -117,20 +117,6 @@
               }
             },
             {
-              "id": "inbox-button",
-              "type": "block",
-              "size": {
-                "px": 92
-              },
-              "window_drag": true,
-              "content": {
-                "mod": "relevo",
-                "props": {
-                  "role": "inbox-button"
-                }
-              }
-            },
-            {
               "id": "tasks-button",
               "type": "block",
               "size": {
@@ -249,18 +235,8 @@
                 {
                   "id": "panel-body",
                   "type": "stack",
-                  "active": "inbox",
+                  "active": "tasks",
                   "children": [
-                    {
-                      "id": "inbox",
-                      "type": "block",
-                      "content": {
-                        "mod": "relevo",
-                        "props": {
-                          "role": "inbox"
-                        }
-                      }
-                    },
                     {
                       "id": "files",
                       "type": "block",
