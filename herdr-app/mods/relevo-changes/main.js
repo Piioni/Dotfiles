@@ -1,6 +1,6 @@
 import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { spaces, panes, focused, exec, watchFolder, theme } from "herdr";
+import { spaces, panes, focused, exec, watchFolder, theme, run, appHome } from "herdr";
 import { helixTab, helixPopup, openTab, openPopup } from "./hx.js";
 import { iconFor } from "./icons.js";
 
@@ -111,16 +111,16 @@ export default class Changes extends View {
     if (popup && !this.on) helixPopup(this.root, abs, cx); else helixTab(this.root, abs);
   }
 
-  // Unified diff in Helix, which has no side-by-side view: git writes it to a temp .diff file, Helix opens
-  // it and the file goes away on exit. A new (untracked) file has nothing to compare against, so it shows whole.
+  // Side-by-side diff: Neovim's diff mode through git difftool, in a tab or (popup) over the current one.
+  // New (untracked) files have nothing to compare against, so they open read-only.
   openDiff(file, popup, cx) {
     if (!this.root) return;
     this.open = file.path;
     const name = `diff · ${file.path.split("/").pop()}`;
-    const gitArgs = file.fresh || (!this.hasHead && file.status === "A")
-      ? ["diff", "--no-index", "--no-color", "--", "/dev/null", file.path]
-      : ["diff", "--no-color", ...(this.hasHead ? ["HEAD"] : []), "--", file.path];
-    const argv = ["sh", "-c", 'f=$(mktemp --suffix=.diff) || exit 1; trap \'rm -f "$f"\' EXIT HUP TERM; git "$@" > "$f"; hx "$f"', "sh", ...gitArgs];
+    const init = `VIMINIT=source ${appHome()}/mods/relevo-changes/diff.lua`;
+    const argv = file.fresh || (!this.hasHead && file.status === "A")
+      ? ["env", init, "nvim", "-R", file.path]
+      : ["env", init, "git", "-c", "diff.tool=nvimdiff", "difftool", "-y", ...(this.hasHead ? ["HEAD"] : []), "--", file.path];
     if (popup && !this.on) openPopup(this.root, argv, name, cx); else openTab(this.root, argv, name);
   }
 
