@@ -9,7 +9,7 @@ const { Handoff, openHandoff, handoffFrom, closeHandedOff } = await import("../h
 const { default: Relevo } = await import("../main.js");
 const { ACCOUNTS, accountOf } = await import("../accounts.js");
 
-const FROM = ACCOUNTS[0], TO = ACCOUNTS[1], TAB = `work · ${TO.letter}`, INTERRUPT = /^hc interrupt t1/;
+const FROM = ACCOUNTS[0], TO = ACCOUNTS[1], TAB = `work · ${TO.label}`, INTERRUPT = /^hc interrupt t1/;
 const UUID = "11111111-2222-3333-4444-555555555555";
 const SESSION = `/home/test/${FROM.claudeDir}/projects/-work-app/${UUID}.jsonl`;
 const agent = (address, over = {}) => ({ address, pane: `p-${address}`, space: "sp1", tab: `tb-${address}`, tab_name: "work", status: "working", ...over });
@@ -141,6 +141,23 @@ test("a full account can't be picked", async () => {
   assert.equal(find(part.render(), `handoff-${TO.key}`).handlers.on_click, undefined);
   part.quotas = { [TO.key]: { h5: { pct: 40 } } };
   assert.ok(find(part.render(), `handoff-${TO.key}`).handlers.on_click);
+});
+
+test("inside one profile the chat resumes in place, with that profile's launcher for the other account", async () => {
+  const execs = /** @type {string[]} */ ([]);
+  fake.exec = (cmd, args) => {
+    execs.push([cmd, ...args].join(" "));
+    return cmd === "hc" && args[0] === "interrupt" ? outcome("stopped") : null;
+  };
+  const cx = fakeCx(), part = new Handoff();
+  cx.sleep = async () => { fake.agents.push(agent("t2", { tab_name: `work · ${FROM.label}`, status: "idle" })); };
+  fake.props = { ...PROPS, from: TO.key, transcript: `/home/test/${TO.claudeDir}/projects/-work-app/${UUID}.jsonl` };
+  part.go(FROM.key, cx);
+  await flush();
+  assert.equal(execs.some((c) => c.startsWith("sh -c")), false, "the session file is not copied");
+  const argv = tabNews()[0].argv;
+  assert.match(argv[2], /claude-token personal \.claude-work/);
+  assert.deepEqual(argv.slice(-3), ["--resume", UUID, "--fork-session"]);
 });
 
 test("only a handoff from a full account says the quota ran out", async () => {

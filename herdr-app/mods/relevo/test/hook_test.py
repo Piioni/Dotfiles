@@ -48,20 +48,21 @@ export const LAUNCHERS = [
             self.assertEqual(hook.account_for("/h/.claude-work/", DIRS), "work")
             self.assertIsNone(hook.account_for("/h/.other", DIRS))
 
+    def test_a_token_launcher_names_its_account_whatever_the_folder(self):
+        with patch.dict(os.environ, {"HOME": "/h"}):
+            self.assertEqual(hook.account_for("/h/.claude-work", DIRS, "personal"), "personal")
+            self.assertEqual(hook.account_for("/h/.claude-work", DIRS, "unknown"), "work")
+            self.assertEqual(hook.account_for("/h/.claude-work", DIRS, ""), "work")
+            self.assertEqual(hook.account_for(None, DIRS, None), "personal")
+
     def test_labels_for_a_stop(self):
         data = {"hook_event_name": "Stop", "transcript_path": "/t.jsonl", "background_tasks": [{"type": "shell"}]}
-        self.assertEqual(hook.labels(data, "work", "feat/ABC-12-x"), {
-            "wait": "watch", "bg": "⧗ 1 shell", "account": "work", "jira": "ABC-12", "transcript": "/t.jsonl",
+        self.assertEqual(hook.labels(data, "work"), {
+            "wait": "watch", "bg": "⧗ 1 shell", "account": "work", "transcript": "/t.jsonl",
         })
 
     def test_session_end_clears_every_label(self):
-        self.assertEqual(set(hook.labels({"hook_event_name": "SessionEnd"}, "work", "ABC-12").values()), {""})
-
-    def test_branch_of_a_repo_without_commits(self):
-        with tempfile.TemporaryDirectory() as d:
-            hook.subprocess.run(["git", "-C", d, "init", "-q"], check=True)
-            hook.subprocess.run(["git", "-C", d, "checkout", "-q", "-b", "feat/ABC-77-demo"], check=True)
-            self.assertEqual(hook.branch_of(d), "feat/ABC-77-demo")
+        self.assertEqual(set(hook.labels({"hook_event_name": "SessionEnd"}, "work").values()), {""})
 
     def test_a_hook_outside_herdr_does_nothing(self):
         with patch.dict(os.environ, clear=True), patch.object(hook.subprocess, "run") as run:

@@ -18,6 +18,7 @@ export const LAUNCHERS = [
   { key: "pi", label: "Pi", app: "pi", profile: "normal", command: 'env -u PI_CODING_AGENT_DIR -u PI_CODING_AGENT_SESSION_DIR "$HOME/.pi/agent/bin/pi"' },
   { key: "pi-sipos", label: "Pi SIPOS", app: "pi", profile: "SIPOS", command: '"$HOME/bin/pi-sipos"' },
   { key: "codex", label: "Codex CLI", app: "codex", profile: "normal", account: "codex", command: "codex --profile configured" },
+  { key: "work-on-personal", label: "Work Claude (personal account)", app: "claude", profile: "work", account: "personal", command: "claude-token personal .claude-work", claudeDir: ".claude-work" },
 ];
 ACCOUNTS[0].futureSetting = "keep me";
 export const EXTRA_SETTING = { enabled: true };

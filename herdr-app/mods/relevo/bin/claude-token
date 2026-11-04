@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Starts Claude Code as <account> with its keyring token, using the profile folder <dir> under home.
+# Usage: claude-token <account> <dir> [claude args...]
+# Store a token with: secret-tool store --label "Claude <account>" service claude account <account>
+account=${1:?usage: claude-token <account> <dir> [claude args...]}
+dir=${2:?usage: claude-token <account> <dir> [claude args...]}
+shift 2
+
+[[ $account =~ ^[A-Za-z0-9_-]+$ && $dir =~ ^\.[A-Za-z0-9_-][A-Za-z0-9._-]*$ ]] || { echo "claude-token: invalid account or folder" >&2; exit 2; }
+
+token=$(secret-tool lookup service claude account "$account" 2>/dev/null)
+# Without a token Claude would silently fall back to the login stored in that folder: another account.
+[ -n "$token" ] || { echo "claude-token: no token for '$account' in the keyring" >&2; exit 1; }
+
+# The default folder is found by Claude itself; naming it starts the first-run setup.
+folder=(-u CLAUDE_CONFIG_DIR)
+[ "$dir" = .claude ] || folder=("CLAUDE_CONFIG_DIR=$HOME/$dir")
+
+# Exported, not passed as `env VAR=value`: that would put the token on a command line other users can read.
+export CLAUDE_CODE_OAUTH_TOKEN="$token" RELEVO_ACCOUNT="$account"
+exec env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN "${folder[@]}" claude "$@"

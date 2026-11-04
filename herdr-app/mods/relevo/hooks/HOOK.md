@@ -5,8 +5,7 @@ only sets terminal labels:
 
 | Label | What it is | What needs it |
 |---|---|---|
-| `agent.account` | the account whose `claudeDir` matches `CLAUDE_CONFIG_DIR` | account chips, time per account |
-| `agent.jira` | the ticket key in the branch name | ticket chips |
+| `agent.account` | `RELEVO_ACCOUNT` (set by a token launcher), else the account whose `claudeDir` matches `CLAUDE_CONFIG_DIR` | account chips, time per account |
 | `agent.transcript` | the session file | handoffs that resume the conversation |
 | `agent.wait`, `agent.bg` | background shells and wakeups still running | the ⧗ marker and its alert |
 
@@ -38,8 +37,7 @@ H=~/.config/herdr-app/mods/relevo/hooks/relevo-labels.py
 ## Verify
 
 Ask the person to start a new agent from Relevo and send it one message, then run `hc ls` to find its terminal and
-`hc get <terminal>`. `labels` should have `agent.account` and `agent.transcript`, plus `agent.jira` when the branch
-names a ticket.
+`hc get <terminal>`. `labels` should have `agent.account` and `agent.transcript`.
 
 ## Undo
 

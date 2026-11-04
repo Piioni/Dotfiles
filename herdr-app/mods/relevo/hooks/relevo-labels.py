@@ -2,7 +2,7 @@
 """Optional Claude Code hook for Relevo. It only sets terminal labels; setup is in HOOK.md.
 
 As a hook (SessionStart, Stop, SessionEnd) it reads Claude's JSON on stdin and sets agent.account,
-agent.jira, agent.transcript, agent.wait and agent.bg. Outside a Herdr terminal it does nothing.
+agent.transcript, agent.wait and agent.bg. Outside a Herdr terminal it does nothing.
 --check, --install and --uninstall manage it in the settings of each account in config.js.
 """
 import json
@@ -18,7 +18,6 @@ from collections import Counter
 
 EVENTS = ("SessionStart", "Stop", "SessionEnd")
 NAME = "relevo-labels.py"
-TICKET = re.compile(r"\b([A-Z][A-Z0-9]+-\d+)\b")
 ACCOUNT = re.compile(r'key:\s*"([^"]+)"[^{}]*?claudeDir:\s*"([^"]+)"')
 SCRIPT = os.path.realpath(__file__)
 
@@ -32,7 +31,10 @@ def accounts(config_path=None):
         return {folder: key for key, folder in ACCOUNT.findall(section.group(1) if section else "")}
 
 
-def account_for(config_dir, dirs):
+def account_for(config_dir, dirs, override=None):
+    """The launcher's RELEVO_ACCOUNT wins: a token launch uses one account's profile folder with another account."""
+    if override in dirs.values():
+        return override
     home = os.path.expanduser("~")
     return dirs.get(os.path.relpath((config_dir or os.path.join(home, ".claude")).rstrip("/"), home))
 
@@ -53,21 +55,15 @@ def pending(data):
     return None, None
 
 
-def labels(data, account, branch):
+def labels(data, account):
     """The labels for one hook event; an empty value removes a label."""
     if data.get("hook_event_name") == "SessionEnd":
-        return {k: "" for k in ("wait", "bg", "account", "jira", "transcript")}
+        return {k: "" for k in ("wait", "bg", "account", "transcript")}
     wait, bg = pending(data)
-    ticket = TICKET.search(branch or "")
     return {
         "wait": wait or "", "bg": bg or "", "account": account or "",
-        "jira": ticket.group(1) if ticket else "", "transcript": data.get("transcript_path") or "",
+        "transcript": data.get("transcript_path") or "",
     }
-
-
-def branch_of(cwd):
-    r = subprocess.run(["git", "-C", cwd, "branch", "--show-current"], capture_output=True, text=True, timeout=3)
-    return r.stdout.strip()
 
 
 def on_hook():
@@ -75,8 +71,8 @@ def on_hook():
     if not terminal:
         return
     data = json.load(sys.stdin)
-    account = account_for(os.environ.get("CLAUDE_CONFIG_DIR"), accounts())
-    values = labels(data, account, branch_of(data.get("cwd") or os.getcwd()))
+    account = account_for(os.environ.get("CLAUDE_CONFIG_DIR"), accounts(), os.environ.get("RELEVO_ACCOUNT"))
+    values = labels(data, account)
     hc = shutil.which("hc") or os.path.expanduser("~/.local/bin/hc")
     args = [hc, "label", terminal] + ["agent.%s=%s" % kv for kv in values.items()]
     subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)

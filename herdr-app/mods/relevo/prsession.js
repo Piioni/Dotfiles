@@ -36,7 +36,7 @@ export async function openPrSession(pr, clone, account) {
       return co.stderr.trim().split("\n").pop() || "gh pr checkout failed";
     }
   } else notify({ title: `${branch} is already checked out`, body: path, level: "info", timeout: 3000 });
-  const argv = launchArgv(account, sessionPrompt(pr)), tab = `${pr.repo.split("/").pop()}#${pr.number} · ${accountOf(account).letter}`;
+  const argv = launchArgv(account, sessionPrompt(pr)), tab = `${pr.repo.split("/").pop()}#${pr.number} · ${accountOf(account).label}`;
   // Unnamed, like the worktree mod's spaces, so it follows the folder and nests under the repo.
   const space = spaces().find((s) => !s.machine && s.folder === path);
   if (space) run("tab.new", { space: space.id, name: tab, folder: path, argv });

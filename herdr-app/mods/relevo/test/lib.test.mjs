@@ -412,7 +412,12 @@ test("lastMessage: the agent's last words, not tool calls or hook noise", () => 
   assert.equal(lastMessage("no agent here"), "");
 });
 
-const ACCTS = [{ key: "personal", claudeDir: ".claude" }, { key: "work", claudeDir: ".claude-work" }, { key: "codex" }];
+const LAUNCH = [
+  { key: "personal", app: "claude", account: "personal", claudeDir: ".claude" },
+  { key: "work", app: "claude", account: "work", claudeDir: ".claude-work" },
+  { key: "work-on-personal", app: "claude", account: "personal", claudeDir: ".claude-work" },
+  { key: "codex", app: "codex", account: "codex" },
+];
 const ID = "0b5e6f4a-12cd-4e8f-9a01-23456789abcd", SESSION = `/h/.claude/projects/-h-code-api/${ID}.jsonl`;
 
 test("terminalAccount: the hook's label, else Codex by its app", () => {
@@ -423,12 +428,21 @@ test("terminalAccount: the hook's label, else Codex by its app", () => {
 });
 
 test("handoffPlan: Claude to Claude resumes from a copy in the next account's projects folder", () => {
-  assert.deepEqual(handoffPlan({ from: "personal", to: "work", transcript: SESSION, accounts: ACCTS, home: "/h" }),
-    { mode: "resume", src: SESSION, dir: "/h/.claude-work/projects/-h-code-api", id: ID });
+  assert.deepEqual(handoffPlan({ from: "personal", to: "work", transcript: SESSION, launchers: LAUNCH, home: "/h" }),
+    { mode: "resume", src: SESSION, dir: "/h/.claude-work/projects/-h-code-api", id: ID, launcher: LAUNCH[1], seed: true });
+});
+
+test("handoffPlan: the session's profile goes on with the other account, without copying the file", () => {
+  const WORK_SESSION = `/h/.claude-work/projects/-h-code-api/${ID}.jsonl`;
+  assert.deepEqual(handoffPlan({ from: "work", to: "personal", transcript: WORK_SESSION, launchers: LAUNCH, home: "/h" }),
+    { mode: "resume", src: WORK_SESSION, dir: "/h/.claude-work/projects/-h-code-api", id: ID, launcher: LAUNCH[2], seed: false });
+  // Started with a token, the personal account's label sits on a session of the work profile.
+  assert.deepEqual(handoffPlan({ from: "personal", to: "work", transcript: WORK_SESSION, launchers: LAUNCH, home: "/h" }),
+    { mode: "resume", src: WORK_SESSION, dir: "/h/.claude-work/projects/-h-code-api", id: ID, launcher: LAUNCH[1], seed: false });
 });
 
 test("handoffPlan: Codex on either side, an unknown session or the same account starts from a note", () => {
-  const plan = (o) => handoffPlan({ from: "personal", to: "work", transcript: SESSION, accounts: ACCTS, home: "/h", ...o }).mode;
+  const plan = (o) => handoffPlan({ from: "personal", to: "work", transcript: SESSION, launchers: LAUNCH, home: "/h", ...o }).mode;
   assert.equal(plan({ to: "codex" }), "note");
   assert.equal(plan({ from: "codex", transcript: null }), "note");
   assert.equal(plan({ transcript: null }), "note");
@@ -437,13 +451,13 @@ test("handoffPlan: Codex on either side, an unknown session or the same account 
   assert.equal(plan({ transcript: "/h/.claude/projects/-x/bad id;rm.jsonl" }), "note");
 });
 
-test("handoffPlan: only a UUID file in the source account's own projects folder is trusted", () => {
-  const plan = (transcript) => handoffPlan({ from: "personal", to: "work", transcript, accounts: ACCTS, home: "/h" }).mode;
+test("handoffPlan: only a UUID file in a configured profile's projects folder is trusted", () => {
+  const plan = (transcript) => handoffPlan({ from: "personal", to: "work", transcript, launchers: LAUNCH, home: "/h" }).mode;
   assert.equal(plan(`/h/.claude/projects/-x/-${ID.slice(1)}.jsonl`), "note");
   assert.equal(plan("/h/.claude/projects/-x/--help.jsonl"), "note");
   assert.equal(plan(`/h/.claude/projects/../../.ssh/${ID}.jsonl`), "note");
   assert.equal(plan(`/h/.claude/projects/a/b/${ID}.jsonl`), "note");
-  assert.equal(plan(`/h/.claude-work/projects/-x/${ID}.jsonl`), "note");
+  assert.equal(plan(`/h/.other/projects/-x/${ID}.jsonl`), "note");
   assert.equal(plan(`/tmp/.claude/projects/-x/${ID}.jsonl`), "note");
 });
 

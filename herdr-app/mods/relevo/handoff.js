@@ -1,7 +1,7 @@
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { theme, exec, run, home, agents, panes, terminals, notify, props, openOverlay, closeOverlay } from "herdr";
-import { ACCOUNTS, CODEX, accountOf, launchArgv, launcherOf, loadClaudeQuotas, chip } from "./accounts.js";
+import { ACCOUNTS, CODEX, LAUNCHERS, accountOf, launchArgv, loadClaudeQuotas, chip } from "./accounts.js";
 import { spinner } from "./ui.js";
 import { GIT_READ } from "./lib/git.js";
 import { terminalAccount, handoffPlan, resumePrompt, notePrompt } from "./lib/handoff.js";
@@ -143,12 +143,11 @@ export class Handoff {
     cx.spawn(async (cx) => {
       try {
         if (!await stopAgent(p.terminal)) return fail("Couldn't stop this agent, so nothing started");
-        const profiles = ACCOUNTS.map((a) => ({ ...a, claudeDir: launcherOf(a.key).claudeDir ?? a.claudeDir }));
-        const plan = handoffPlan({ from: p.from, to, transcript: p.transcript, accounts: profiles, home: home() });
-        const label = accountOf(to).label, tab = `${p.tab || "handoff"} · ${accountOf(to).letter}`;
+        const plan = handoffPlan({ from: p.from, to, transcript: p.transcript, launchers: LAUNCHERS, home: home() });
+        const label = accountOf(to).label, tab = `${p.tab || "handoff"} · ${accountOf(to).label}`;
         let argv;
-        if (plan.mode === "resume" && await seedResume(plan)) {
-          argv = launchArgv(to, resumePrompt(label, p.reason === "quota"), ["--resume", plan.id, "--fork-session"]);
+        if (plan.mode === "resume" && (!plan.seed || await seedResume(plan))) {
+          argv = launchArgv(plan.launcher, resumePrompt(label, p.reason === "quota"), ["--resume", plan.id, "--fork-session"]);
         } else {
           const path = await writeNote(p, to);
           if (!path) return fail("Could not write the handoff note");

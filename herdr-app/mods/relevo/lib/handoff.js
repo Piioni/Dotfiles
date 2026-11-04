@@ -8,18 +8,21 @@ export function terminalAccount(terminal) {
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
-// Between two Claude accounts with a known session file, the next agent resumes the same
-// conversation from a copy in its own config dir; anything else starts from a note.
-// The label is only trusted as <home>/<source claudeDir>/projects/<folder>/<uuid>.jsonl.
-/** @param {{from:string|null,to:string,transcript:string|null,accounts:Array<{key:string,claudeDir?:string}>,home:string}} options
- * @returns {{mode:"note"} | {mode:"resume",src:string,dir:string,id:string}} */
-export function handoffPlan({ from, to, transcript, accounts, home }) {
-  const src = accounts.find((a) => a.key === from), dst = accounts.find((a) => a.key === to);
-  if (!src?.claudeDir || !dst?.claudeDir || from === to) return { mode: "note" };
-  const root = `${home}/${src.claudeDir}/projects/`;
-  const m = (transcript ?? "").startsWith(root) && new RegExp(`^([\\w-]+)/(${UUID})\\.jsonl$`, "i").exec(transcript.slice(root.length));
-  if (!m) return { mode: "note" };
-  return { mode: "resume", src: transcript, dir: `${home}/${dst.claudeDir}/projects/${m[1]}`, id: m[2] };
+// Between two Claude accounts with a known session file, the next agent resumes the same conversation.
+// The session's folder is the profile that goes on: the next account's launcher for that same profile starts it,
+// and the file is only copied when the launcher found instead keeps its sessions in another folder.
+// Anything else starts from a note. The label is only trusted as <home>/<launcher claudeDir>/projects/<folder>/<uuid>.jsonl.
+/** @typedef {{key:string,app?:string,account?:string,claudeDir?:string}} Launcher */
+/** @param {{from:string|null,to:string,transcript:string|null,launchers:Launcher[],home:string}} options
+ * @returns {{mode:"note"} | {mode:"resume",src:string,dir:string,id:string,launcher:Launcher,seed:boolean}} */
+export function handoffPlan({ from, to, transcript, launchers, home }) {
+  const claude = launchers.filter((l) => l.app === "claude" && l.claudeDir);
+  const srcDir = from && from !== to && claude.map((l) => l.claudeDir).find((d) => (transcript ?? "").startsWith(`${home}/${d}/projects/`));
+  if (!srcDir || !transcript) return { mode: "note" };
+  const m = new RegExp(`^([\\w-]+)/(${UUID})\\.jsonl$`, "i").exec(transcript.slice(`${home}/${srcDir}/projects/`.length));
+  const dst = claude.find((l) => l.account === to && l.claudeDir === srcDir) ?? claude.find((l) => l.account === to);
+  if (!m || !dst) return { mode: "note" };
+  return { mode: "resume", src: transcript, dir: `${home}/${dst.claudeDir}/projects/${m[1]}`, id: m[2], launcher: dst, seed: dst.claudeDir !== srcDir };
 }
 
 /** @param {string} label @param {boolean} [outOfQuota] */

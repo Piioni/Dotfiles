@@ -1,22 +1,29 @@
 // Relevo Settings: provider accounts, named launch profiles and slash commands.
 
 export const ACCOUNTS = [
-  {
-    key: "personal", label: "Claude", letter: "C", claudeDir: ".claude", bg: "#c3e88d",
-    fg: "#1e2030",
-  },
+  { key: "personal", label: "Claude", claudeDir: ".claude", bg: "#c3e88d", fg: "#1e2030" },
+  { key: "work", label: "Sipos", claudeDir: ".claude-sipos", bg: "#82aaff", fg: "#1e2030" },
 ];
 
-export const CODEX = { key: "codex", label: "Codex", letter: "X", bg: "#4fd6be", fg: "#1e2030" };
+export const CODEX = { key: "codex", label: "Codex", bg: "#4fd6be", fg: "#1e2030" };
 
 export const LAUNCHERS = [
   {
-    key: "claude", label: "Claude Code", app: "claude", profile: "normal", account: "personal",
+    key: "claude", label: "Claude", app: "claude", profile: "normal", account: "personal", default: true,
     command: "env -u CLAUDE_CONFIG_DIR claude", claudeDir: ".claude",
   },
   {
-    key: "claude-sipos", label: "Claude SIPOS", app: "claude", profile: "SIPOS", account: "personal",
+    key: "claude-work", label: "Claude (work account)", app: "claude", profile: "normal", account: "work",
+    command: "\"${HERDR_APP_HOME:-$HOME/.config/herdr-app}/mods/relevo/bin/claude-token\" work .claude", claudeDir: ".claude",
+  },
+  {
+    key: "claude-sipos", label: "Claude SIPOS", app: "claude", profile: "SIPOS", account: "work", default: true,
     command: "env CLAUDE_CONFIG_DIR=\"$HOME/.claude-sipos\" claude", claudeDir: ".claude-sipos",
+  },
+  {
+    key: "claude-sipos-personal", label: "Claude SIPOS (personal account)", app: "claude", profile: "SIPOS", account: "personal",
+    command: "\"${HERDR_APP_HOME:-$HOME/.config/herdr-app}/mods/relevo/bin/claude-token\" personal .claude-sipos",
+    claudeDir: ".claude-sipos",
   },
   {
     key: "pi", label: "Pi", app: "pi", profile: "normal",
