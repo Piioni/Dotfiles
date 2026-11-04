@@ -11,6 +11,8 @@ import { icons, icon, statusIcon, priorityIcon } from "./icons.js";
 const REFRESH = 60000;
 const DONE_ROWS = 5;
 const SCOPE_LABEL = { assigned: "Assigned", created: "Created", subscribed: "Subscribed" };
+// Popups take their height from the root element: a percentage of an unsized popup is zero.
+const VIEW_HEIGHT = 405;
 const FILTERS = [["priority", "Priority"], ["team", "Team"], ["project", "Project"], ["assignee", "Assignee"], ["label", "Label"]];
 const SAVE_KEY = `input -s "Linear key: " | save -f ~/.config/linear/token; chmod 600 ~/.config/linear/token`;
 const tokenPath = () => `${home()}/.config/linear/token`;
@@ -268,7 +270,7 @@ export default class Linear extends View {
     const reverse = div().id("reverse").size(26).flex_none().flex().items_center().justify_center().rounded(6).border_1().border_color(viewOf().reverse ? t.accent : t.border)
       .text_color(viewOf().reverse ? t.accent : t.muted).text_size(13).cursor_pointer().hover((s) => s.bg(t.hover)).tooltip("Reverse the order")
       .on_click(() => this.setView({ reverse: !viewOf().reverse })).child("⇅");
-    return v_flex().id("issues-view").size_full().min_h(0).overflow_y_scrollbar().p(14).gap(2).bg(t.popover).text_color(t.foreground)
+    return v_flex().id("issues-view").w_full().h(VIEW_HEIGHT).overflow_y_scrollbar().p(14).gap(2).bg(t.popover).text_color(t.foreground)
       .child(div().pb(6).text_size(12).text_color(t.dim).child("Display options"))
       .child(this.select("grouping", "Grouping", GROUPINGS, t))
       .child(this.select("sub", "Sub-grouping", GROUPINGS, t))
@@ -309,7 +311,7 @@ export default class Linear extends View {
         })];
     };
     const any = hasFilter(f);
-    return v_flex().id("issues-filter-menu").size_full().min_h(0).overflow_y_scrollbar().p(14).gap(1).bg(t.popover).text_color(t.foreground)
+    return v_flex().id("issues-filter-menu").w_full().h(this.filterHeight()).overflow_y_scrollbar().p(14).gap(1).bg(t.popover).text_color(t.foreground)
       .child(h_flex().items_center().child(div().flex_1().text_size(12).text_color(t.dim).child("Filter issues"))
         .child(div().id("clear-filter").text_size(12).text_color(any ? t.accent : t.dim).when(any, (e) => e.cursor_pointer().hover((s) => s.underline()).on_click(() => setShared(FILTER, null))).child("Clear")))
       .children(FILTERS.flatMap(section))
@@ -347,7 +349,7 @@ export default class Linear extends View {
             .children(SCOPE_NAMES.map((s) => this.segment(`scope-${s}`, SCOPE_LABEL[s], this.scope === s, t, (_e, cx) => this.setScope(s, cx)))))
           .child(div().flex_1())
           .child(this.iconButton("open-filter", "filter", hasFilter(filter), "Filter", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 280, height: this.filterHeight(), props: { menu: "filter" } }), t))
-          .child(this.iconButton("open-view", "sliders", custom, "Display options", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 320, height: 440, props: { menu: "view" } }), t)))
+          .child(this.iconButton("open-view", "sliders", custom, "Display options", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 320, height: VIEW_HEIGHT, props: { menu: "view" } }), t)))
         .child(div().id("linear-filter").h(28).px(9).flex().items_center().rounded(7).border_1().border_color(this.typing ? t.accent : t.border).cursor_text()
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).child(Input.new(this.input).h_full().text_size(12).text_color(t.foreground)))
         .child(h_flex().gap(4).items_center().flex_wrap()
