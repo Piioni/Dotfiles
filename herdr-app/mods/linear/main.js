@@ -45,7 +45,7 @@ export default class Linear extends View {
   init(_props, cx) {
     const { menu, overlay, button } = props() ?? {};
     if (menu) {
-      this.menu = menu; this.overlay = overlay; this.picking = null; this.page = props().page ?? "main"; this.drag = null;
+      this.menu = menu; this.overlay = overlay; this.picking = null; this.page = props().page ?? "main"; this.drag = null; this.over = null; this.landed = null;
       cx.spawn(async (cx) => { await icons(); this.icons = true; cx.notify(); });
       return;
     }
@@ -236,8 +236,8 @@ export default class Linear extends View {
 
   iconButton(id, glyph, active, tip, onClick, t) {
     return div().id(id).size(28).flex_none().flex().items_center().justify_center().rounded(7).border_1()
-      .border_color(active ? t.accent : t.border).text_color(active ? t.accent : t.muted).cursor_pointer()
-      .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(tip).on_click(onClick)
+      .border_color(active ? t.dim : t.border).bg(active ? t.selected : t.background).text_color(active ? t.foreground : t.muted).cursor_pointer()
+      .hover((s) => s.bg(active ? t.selected : t.hover).text_color(t.foreground)).tooltip(tip).on_click(onClick)
       .when(this.icons, (e) => e.child(svg(icon(glyph)).size(14)));
   }
 
@@ -292,9 +292,9 @@ export default class Linear extends View {
 
   // The small square button beside a select.
   tool(id, glyph, active, tip, onClick, t) {
-    return div().id(id).size(28).flex_none().flex().items_center().justify_center().rounded(8).border_1().border_color(active ? t.accent : t.border)
+    return div().id(id).size(28).flex_none().flex().items_center().justify_center().rounded(8).border_1().border_color(active ? t.dim : t.border)
       .bg(active ? t.selected : t.raised).cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(tip).on_click(onClick)
-      .child(this.glyph(glyph, 14, active ? t.accent : t.muted));
+      .child(this.glyph(glyph, 14, active ? t.foreground : t.muted));
   }
 
   viewMenu(t) {
@@ -331,45 +331,67 @@ export default class Linear extends View {
   groupsMenu(t) {
     const grouping = viewOf().grouping, metas = (shared(GROUPS)?.grouping === grouping ? shared(GROUPS).metas : []) ?? [];
     const keys = metas.map((m) => m.key), hidden = metas.filter((m) => m.hidden).map((m) => m.key);
-    const move = (key, target, cx) => { this.saveOrder(moveKey(keys, key, target), hidden); cx?.notify(); };
-    const step = (i, by) => keys[i + by] && move(keys[i], keys[i + by]);
+    const dragging = this.drag ? metas.find((m) => m.key === this.drag) : null, from = dragging ? keys.indexOf(this.drag) : -1;
+    const drop = (cx) => { this.drag = null; this.over = null; cx.notify(); };
+    // The moved row dips and comes back, so the eye follows where it went.
+    const move = (key, target, cx) => {
+      this.saveOrder(moveKey(keys, key, target), hidden);
+      this.landed = key; cx.notify();
+      cx.spawn(async (cx) => { await cx.sleep(280); this.landed = null; cx.notify(); });
+    };
     const row = (m, i) => {
-      const lifted = this.drag === m.key;
+      const lifted = this.drag === m.key, target = Boolean(dragging) && !lifted && this.over === m.key;
       const mark = m.icon === "status" ? this.glyph(statusName(m.type), 16, m.color)
         : m.icon === "priority" ? this.glyph(`p${m.priority}`, 16, m.priority === 1 ? t.ansi3 : t.dim)
         : div().size(10).flex_none().rounded(5).bg(m.color ?? t.dim);
       const arrow = (id, glyph, enabled, by) => div().id(`${id}-${m.key}`).size(22).flex_none().flex().items_center().justify_center().rounded(5)
         .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-        .when(enabled, (e) => e.cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => step(i, by))).child(this.glyph(glyph, 13, enabled ? t.muted : "#00000000"));
-      return h_flex().id(`grp-${m.key}`).h(34).flex_none().px(8).gap(10).items_center().rounded(8)
-        .bg(lifted ? t.selected : t.popover).border_1().border_color(lifted ? t.accent : "#00000000")
-        .hover((s) => s.bg(lifted ? t.selected : t.hover))
-        .on_mouse_down("left", (_e, cx) => { this.drag = m.key; cx.notify(); })
-        .on_mouse_up("left", (_e, cx) => { const from = this.drag; this.drag = null; if (from && from !== m.key) move(from, m.key); cx.notify(); })
-        .child(this.glyph("grip", 14, t.dim))
-        .child(mark)
-        .child(div().flex_1().min_w(0).truncate().text_size(13).text_color(m.hidden ? t.dim : t.foreground).child(m.name))
-        .child(arrow("up", "chev-u", i > 0, -1)).child(arrow("down", "chev-d", i < keys.length - 1, 1))
-        .child(div().id(`eye-${m.key}`).size(26).flex_none().flex().items_center().justify_center().rounded(6).cursor_pointer().hover((s) => s.bg(t.raised))
-          .tooltip(m.hidden ? "Show this group" : "Hide this group")
-          .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-          .on_click(() => this.saveOrder(keys, m.hidden ? hidden.filter((k) => k !== m.key) : [...hidden, m.key]))
-          .child(this.glyph(m.hidden ? "eye-off" : "eye", 15, m.hidden ? t.dim : t.foreground)));
+        .when(enabled, (e) => e.cursor_pointer().hover((s) => s.bg(t.hover)).on_click((_e, cx) => move(m.key, keys[i + by], cx)))
+        .child(this.glyph(glyph, 13, enabled ? t.muted : "#00000000"));
+      // Dropping on a row puts the dragged one in its place: the bar shows which edge it lands on.
+      const bar = (on) => div().flex_none().h(2).mx(10).rounded(1).bg(on ? t.foreground : "#00000000");
+      const above = target && from > i, below = target && from < i;
+      return v_flex().flex_none()
+        .child(bar(above))
+        .child(h_flex().id(`grp-${m.key}`).h(34).flex_none().px(8).gap(10).items_center().rounded(8).cursor_grab()
+          .bg(lifted ? t.selected : target ? t.hover : t.popover).border_1().border_color(lifted ? t.dim : "#00000000")
+          .opacity(lifted ? 0.55 : this.landed === m.key ? 0.3 : 1).transition("opacity", { duration: 240, easing: "ease-out" })
+          .hover((s) => s.bg(lifted ? t.selected : t.hover))
+          .on_hover((over, cx) => {
+            if (!this.drag) return;
+            if (over) this.over = m.key; else if (this.over === m.key) this.over = null;
+            cx.notify();
+          })
+          .on_mouse_down("left", (_e, cx) => { this.drag = m.key; cx.notify(); })
+          .on_mouse_up("left", (_e, cx) => { const was = this.drag; drop(cx); if (was && was !== m.key) move(was, m.key, cx); })
+          .child(this.glyph("grip", 14, lifted || target ? t.foreground : t.dim))
+          .child(mark)
+          .child(div().flex_1().min_w(0).truncate().text_size(13).text_color(m.hidden ? t.dim : t.foreground).child(m.name))
+          .child(arrow("up", "chev-u", i > 0, -1)).child(arrow("down", "chev-d", i < keys.length - 1, 1))
+          .child(div().id(`eye-${m.key}`).size(26).flex_none().flex().items_center().justify_center().rounded(6).cursor_pointer().hover((s) => s.bg(t.raised))
+            .tooltip(m.hidden ? "Show this group" : "Hide this group")
+            .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+            .on_click(() => this.saveOrder(keys, m.hidden ? hidden.filter((k) => k !== m.key) : [...hidden, m.key]))
+            .child(this.glyph(m.hidden ? "eye-off" : "eye", 15, m.hidden ? t.dim : t.foreground))))
+        .child(bar(below));
     };
     const custom = Boolean((shared(ORDER) ?? {})[grouping]);
     return v_flex().id("issues-groups").w_full().h(VIEW_HEIGHT).bg(t.popover).text_color(t.foreground)
-      .on_mouse_up("left", () => { this.drag = null; })
+      .when(Boolean(dragging), (e) => e.cursor_grabbing())
+      .on_mouse_up("left", (_e, cx) => drop(cx))
       .child(h_flex().h(46).flex_none().px(12).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().id("groups-back").size(26).flex().items_center().justify_center().rounded(6).cursor_pointer().hover((s) => s.bg(t.hover))
-          .on_click((_e, cx) => { this.page = "main"; this.drag = null; cx.notify(); }).child(this.glyph("back", 15, t.muted)))
+          .on_click((_e, cx) => { this.page = "main"; this.drag = null; this.over = null; cx.notify(); }).child(this.glyph("back", 15, t.muted)))
         .child(div().flex_1().text_size(13).font_semibold().child(`Group ordering · ${GROUPINGS[grouping]}`))
-        .when(custom, (e) => e.child(div().id("groups-reset").text_size(12).text_color(t.accent).cursor_pointer().hover((s) => s.underline())
+        .when(custom, (e) => e.child(div().id("groups-reset").text_size(12).text_color(t.muted).cursor_pointer().hover((s) => s.text_color(t.foreground).underline())
           .on_click(() => setShared(ORDER, { ...(shared(ORDER) ?? {}), [grouping]: null })).child("Reset"))))
-      .child(v_flex().id("groups-list").flex_1().min_h(0).overflow_y_scrollbar().p(8).gap(2)
+      .child(v_flex().id("groups-list").flex_1().min_h(0).overflow_y_scrollbar().p(8)
         .children(metas.map(row))
         .when(!metas.length, (e) => e.child(div().p(12).text_size(12).text_color(t.muted).child("Nothing to order yet"))))
-      .child(div().flex_none().px(14).py(8).border_t(1).border_color(t.border).text_size(11).text_color(t.dim)
-        .child("Drag a row onto another, or use the arrows. The eye hides a group."));
+      .child(h_flex().flex_none().h(34).px(14).gap(6).items_center().border_t(1).border_color(t.border).text_size(11).text_color(t.dim)
+        .child(dragging
+          ? h_flex().gap(4).child("Moving").child(div().font_semibold().text_color(t.foreground).child(dragging.name)).child("· release over a row")
+          : "Drag a row onto another, or use the arrows. The eye hides a group."));
   }
 
   toggleFilter(field, value) {
