@@ -1,0 +1,27 @@
+# Herdr rewrites most of this folder on every start; only personal files are versioned.
+/*
+!/.gitignore
+!/keys.json
+!/settings.json
+!/layouts/
+!/themes/
+!/mods/
+
+/layouts/*
+!/layouts/piioni.json
+!/layouts/piioni.svg
+
+/themes/*
+!/themes/catppuccin.json
+
+/mods/*
+!/mods/issues/
+!/mods/relevo/
+!/mods/relevo-agents/
+!/mods/relevo-changes/
+!/mods/relevo-files/
+!/mods/space-folders/
+
+# Written by gpui-shell into every mod folder.
+gpui-kit.d.ts
+jsconfig.json
