@@ -1,0 +1,262 @@
+// Zed settings
+{
+  // --------------------------------------------------
+  // General behavior
+  // --------------------------------------------------
+
+  "disable_ai": true,
+  "diff_view_style": "split",
+  "cli_default_open_behavior": "existing_window",
+  "base_keymap": "VSCode",
+  "vim_mode": true,
+  "preview_tabs": {
+    "enabled": true,
+  },
+  "session": {
+    "trust_all_worktrees": true,
+  },
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false,
+  },
+
+  // --------------------------------------------------
+  // Appearance
+  // --------------------------------------------------
+  "theme": "One Dark",
+  "icon_theme": "Catppuccin Mocha",
+  "ui_font_size": 16,
+  "buffer_font_size": 15,
+  "buffer_font_family": "Maple Mono NF",
+  "buffer_font_fallbacks": ["Maple Mono NF", "JetBrainsMono Nerd Font Mono", "Menlo", "Monaco", "Courier New"],
+  "buffer_font_weight": 300,
+  "buffer_line_height": {
+    "custom": 1.33,
+  },
+  "cursor_blink": true,
+  "cursor_shape": "bar",
+  "hover_popover_delay": 500,
+  "mouse_wheel_zoom": true,
+  "search": {
+    "button": false,
+  },
+
+  // --------------------------------------------------
+  // Editor
+  // --------------------------------------------------
+  "relative_line_numbers": "disabled",
+  "preferred_line_length": 120,
+  "soft_wrap": "bounded",
+  "show_wrap_guides": true,
+  "colorize_brackets": true,
+  "multi_cursor_modifier": "cmd_or_ctrl",
+  "snippet_sort_order": "top",
+  "auto_indent_on_paste": true,
+  "linked_edits": true,
+  "ensure_final_newline_on_save": true,
+  "remove_trailing_whitespace_on_save": false,
+  "line_ending": "prefer_crlf",
+  "show_signature_help_after_edits": true,
+  "auto_signature_help": true,
+  "show_edit_predictions": true,
+  "edit_predictions": {
+    "provider": "copilot",
+  },
+  "code_lens": "on",
+  "redact_private_values": false,
+  "inlay_hints": {
+    "enabled": true,
+  },
+  "toolbar": {
+    "code_actions": true,
+  },
+  "gutter": {
+    "line_numbers": true,
+  },
+  "indent_guides": {
+    "enabled": true,
+    "coloring": "indent_aware",
+  },
+  "tabs": {
+    "show_diagnostics": "errors",
+  },
+  "tab_bar": {
+    "show": true,
+  },
+  "file_finder": {
+    "modal_max_width": "medium",
+  },
+
+  // --------------------------------------------------
+  // Panels and layout
+  // --------------------------------------------------
+  "status_bar": {
+    "line_endings_button": true,
+    "experimental.show": true,
+  },
+  "project_panel": {
+    "hide_hidden": false,
+    "hide_root": true,
+    "indent_guides": {
+      "show": "always",
+    },
+    "git_status_indicator": true,
+    "diagnostic_badges": false,
+    "show_diagnostics": "all",
+    "indent_size": 20.0,
+    "folder_icons": true,
+    "file_icons": true,
+    "hide_gitignore": false,
+    "dock": "right",
+    "auto_fold_dirs": false,
+    "auto_reveal_entries": true,
+    "button": true,
+    "git_status": true,
+  },
+  "outline_panel": {
+    "button": false,
+    "dock": "right",
+  },
+  "collaboration_panel": {
+    "button": false,
+    "dock": "right",
+  },
+  "git_panel": {
+    "show_count_badge": false,
+    "diff_stats": true,
+    "folder_icons": true,
+    "file_icons": true,
+    "collapse_untracked_diff": false,
+    "status_style": "icon",
+    "button": true,
+    "dock": "right",
+    "tree_view": true,
+  },
+
+  // --------------------------------------------------
+  // Git and workspaces
+  // --------------------------------------------------
+  "git": {
+    "inline_blame": {
+      "enabled": true,
+    },
+  },
+
+  // --------------------------------------------------
+  // AI / agent
+  // --------------------------------------------------
+  "agent": {
+    "enable_feedback": false,
+    "button": true,
+    "dock": "right",
+    "favorite_models": [],
+    "model_parameters": [],
+  },
+  "agent_servers": {
+    "claude-acp": {
+      "default_config_options": {
+        "mode": "acceptEdits",
+      },
+      "type": "registry",
+    },
+    "opencode": {
+      "default_config_options": {
+        "mode": "gentle-orchestrator",
+      },
+      "type": "registry",
+    },
+  },
+
+  // --------------------------------------------------
+  // Terminal
+  // --------------------------------------------------
+  "terminal": {
+    "toolbar": {
+      "breadcrumbs": false,
+    },
+    "copy_on_select": true,
+    "cursor_shape": "block",
+    "shell": {
+      "program": "/usr/bin/bash",
+    },
+    "dock": "bottom",
+    "blinking": "on",
+    "show_count_badge": true,
+    "font_size": 17,
+  },
+
+  // --------------------------------------------------
+  // Language and file associations
+  // --------------------------------------------------
+  "languages": {
+    "CSS": {
+      "language_servers": ["tailwindcss-intellisense-css", "!vscode-css-language-server", "..."],
+    },
+    "TypeScript": {
+      "inlay_hints": {
+        "enabled": true,
+        "show_parameter_hints": false,
+        "show_other_hints": true,
+        "show_type_hints": true,
+      },
+    },
+    "Python": {
+      "format_on_save": "on",
+      "language_servers": ["ty", "ruff", "!basedpyright", "!pyrefly", "!pyright", "!pylsp"],
+      "code_actions_on_format": {
+        "source.organizeImports.ruff": true,
+      },
+      "formatter": {
+        "language_server": {
+          "name": "ruff",
+        },
+      },
+    },
+    "JSON": {
+      "format_on_save": "on",
+    },
+  },
+  "lsp": {
+    "dart": {
+      "binary": {
+        "path": "/home/piioni/fvm/versions/3.24.2/bin/dart",
+        "arguments": ["language-server", "--protocol=lsp"],
+      },
+    },
+    "tailwindcss-language-server": {
+      "settings": {
+        "classAttributes": ["class", "className", "ngClass", "styles"],
+      },
+    },
+  },
+  "file_types": {
+    "Dockerfile": ["Dockerfile", "Dockerfile.*"],
+    "JSON": ["json", "jsonc", "*.code-snippets"],
+  },
+
+  // --------------------------------------------------
+  // Project scanning
+  // --------------------------------------------------
+  "file_scan_exclusions": [
+    "**/.git",
+    "**/.svn",
+    "**/.hg",
+    "**/CVS",
+    "**/.DS_Store",
+    "**/Thumbs.db",
+    "**/.classpath",
+    "**/.settings",
+    "**/out",
+    "**/dist",
+    "**/.husky",
+    "**/.next",
+    "**/.storybook",
+    "**/.tap",
+    "**/.nyc_output",
+    "**/report",
+    "**/.turbo",
+    "**/.vscode",
+    "**/.vscode-test",
+    "**/node_modules",
+  ],
+}
