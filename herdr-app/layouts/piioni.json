@@ -43,7 +43,7 @@
           "id": "accounts",
           "type": "block",
           "size": {
-            "px": 104
+            "px": 128
           },
           "content": {
             "mod": "relevo",
@@ -117,7 +117,7 @@
               }
             },
             {
-              "id": "tasks-button",
+              "id": "issues-button",
               "type": "block",
               "size": {
                 "px": 78
@@ -235,7 +235,7 @@
                 {
                   "id": "panel-body",
                   "type": "stack",
-                  "active": "tasks",
+                  "active": "issues",
                   "children": [
                     {
                       "id": "files",
@@ -259,7 +259,7 @@
                       }
                     },
                     {
-                      "id": "tasks",
+                      "id": "issues",
                       "type": "block",
                       "content": {
                         "mod": "linear"

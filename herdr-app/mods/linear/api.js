@@ -5,25 +5,29 @@ const OPEN = 150;   // open tasks per scope
 const DONE = 40;    // and the most recently touched finished ones
 const RECENT = "-P30D";
 
-const FIELDS = `identifier title url branchName priority updatedAt
+const FIELDS = `identifier title url branchName priority createdAt updatedAt completedAt dueDate
   state { name type color position } team { key } project { name color } parent { identifier }
+  assignee { name displayName }
   children(first: 50) { nodes { state { type } } }
-  labels(first: 4) { nodes { name color } }
+  labels(first: 6) { nodes { name color } }
   attachments(first: 6) { nodes { sourceType url title } }`;
 
 const OPEN_STATE = `state: { type: { nin: ["completed", "canceled"] } }`;
 const DONE_STATE = `state: { type: { in: ["completed", "canceled"] } }, updatedAt: { gte: "${RECENT}" }`;
 
-// One request per scope: the open tasks and the recently finished ones, aliased.
-const SCOPES = {
-  assigned: (me) => `{ open: issues(first: ${OPEN}, filter: { assignee: { id: { eq: "${me}" } }, ${OPEN_STATE} }) { nodes { ${FIELDS} } }
-    done: issues(first: ${DONE}, orderBy: updatedAt, filter: { assignee: { id: { eq: "${me}" } }, ${DONE_STATE} }) { nodes { ${FIELDS} } } }`,
-  created: (me) => `{ open: issues(first: ${OPEN}, filter: { creator: { id: { eq: "${me}" } }, ${OPEN_STATE} }) { nodes { ${FIELDS} } }
-    done: issues(first: ${DONE}, orderBy: updatedAt, filter: { creator: { id: { eq: "${me}" } }, ${DONE_STATE} }) { nodes { ${FIELDS} } } }`,
-  subscribed: (me) => `{ open: issues(first: ${OPEN}, filter: { subscribers: { some: { id: { eq: "${me}" } } }, ${OPEN_STATE} }) { nodes { ${FIELDS} } }
-    done: issues(first: ${DONE}, orderBy: updatedAt, filter: { subscribers: { some: { id: { eq: "${me}" } } }, ${DONE_STATE} }) { nodes { ${FIELDS} } } }`,
+const WHO = {
+  assigned: (me) => `assignee: { id: { eq: "${me}" } }`,
+  created: (me) => `creator: { id: { eq: "${me}" } }`,
+  subscribed: (me) => `subscribers: { some: { id: { eq: "${me}" } } }`,
 };
-export const SCOPE_NAMES = Object.keys(SCOPES);
+export const SCOPE_NAMES = Object.keys(WHO);
+
+// One request per scope: the open tasks, the recently finished ones and the workflow's statuses.
+const query = (scope, me) => `{
+  open: issues(first: ${OPEN}, filter: { ${WHO[scope](me)}, ${OPEN_STATE} }) { nodes { ${FIELDS} } }
+  done: issues(first: ${DONE}, orderBy: updatedAt, filter: { ${WHO[scope](me)}, ${DONE_STATE} }) { nodes { ${FIELDS} } }
+  states: workflowStates(first: 250) { nodes { name type color position } }
+}`;
 
 export class LinearError extends Error {
   constructor(kind, message) { super(message); this.kind = kind; }
@@ -46,6 +50,6 @@ async function gql(token, query) {
 export const viewer = async (token) => (await gql(token, `{ viewer { id name displayName } }`)).viewer;
 
 export async function fetchTasks(token, me, scope) {
-  const data = await gql(token, SCOPES[scope](me));
-  return [...data.open.nodes, ...data.done.nodes];
+  const data = await gql(token, query(scope, me));
+  return { tasks: [...data.open.nodes, ...data.done.nodes], states: data.states.nodes };
 }
