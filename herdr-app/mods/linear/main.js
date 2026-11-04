@@ -11,6 +11,7 @@ import { icons, icon, statusIcon, statusName, priorityIcon, viewIcon } from "./i
 const REFRESH = 60000;
 const DONE_ROWS = 5;
 const VIEWS_TTL = 10 * 60000;
+const ID_WIDTH = 58;  // room for POS-1234, so titles line up
 // Popups take their height from the root element: a percentage of an unsized popup is zero.
 const VIEW_HEIGHT = 405;
 const SAVE_KEY = `input -s "Linear key: " | save -f ~/.config/linear/token; chmod 600 ~/.config/linear/token`;
@@ -190,18 +191,28 @@ export default class Linear extends View {
     return h_flex().id(id).h(18).px(6).gap(4).flex_none().items_center().rounded(9).border_1().border_color(t.border).text_size(11).text_color(color).children(kids);
   }
 
-  row(task, t, nested) {
+  // One column of the tree guides: a trunk (│), an elbow (└) or a branch (├) of the sub-issue's ancestors.
+  guide(kind, t) {
+    const line = (e) => e.ml(6).w(10).border_l(1.5).border_color(t.input);
+    if (kind === " ") return div().w(16).flex_none();
+    if (kind === "│") return v_flex().w(16).flex_none().child(line(div().flex_1()));
+    // The elbow reaches the issue's title line, not the middle of its two lines.
+    return v_flex().w(16).flex_none()
+      .child(line(div().h(16).flex_none()).border_b(1.5).rounded_bl(6))
+      .child(kind === "├" ? line(div().flex_1()) : div().flex_1());
+  }
+
+  // `marks` are the guide columns of a sub-issue; a top-level issue has none.
+  row(task, t, marks = []) {
     const finished = isFinished(task.state.type);
     const meta = [];
     if (this.icons) meta.push(svg(priorityIcon(task.priority)).size(13).flex_none().text_color(task.priority === 1 ? t.ansi3 : t.dim));
-    if (task.project) meta.push(h_flex().gap(4).items_center().min_w(0).max_w(130).text_size(11).text_color(t.muted)
+    if (task.project) meta.push(h_flex().gap(4).items_center().min_w(0).max_w(150).text_size(11).text_color(t.muted)
       .child(div().size(7).flex_none().rounded(4).bg(task.project.color ?? t.dim)).child(div().truncate().child(task.project.name)));
-    for (const l of task.labels.slice(0, 2)) meta.push(h_flex().gap(4).items_center().flex_none().text_size(11).text_color(t.muted)
-      .child(div().size(6).flex_none().rounded(3).bg(l.color ?? t.dim)).child(l.name));
     if (task.kids.total > 0) meta.push(this.pill(`kids-${task.id}`, t, t.muted, `${task.kids.done}/${task.kids.total}`));
     for (const pr of task.prs.slice(0, 2)) meta.push(this.pill(`pr-${task.id}-${pr.number}`, t, t.ansi2,
       this.icons ? svg(icon("pull")).size(11) : "", `#${pr.number}`));
-    return v_flex().id(`task-${task.id}`).flex_none().min_w(0).pl(nested ? 26 : 10).pr(10).py(6).gap(3).rounded(7).cursor_pointer()
+    const body = v_flex().id(`task-${task.id}`).flex_none().min_w(0).pl(marks.length ? 6 : 10).pr(10).py(6).gap(3).rounded(7).cursor_pointer()
       .hover((s) => s.bg(t.hover))
       .tooltip("Click: open in Linear · Right click: copy branch name")
       .on_click(() => openUrl(task.url))
@@ -210,12 +221,22 @@ export default class Linear extends View {
         notify({ title: "Branch copied", body: task.branch, level: "success", timeout: 2500 });
       })
       .child(h_flex().gap(8).items_center().min_w(0)
+        .child(div().w(ID_WIDTH).flex_none().text_size(11).text_color(finished ? t.dim : t.muted).child(task.id))
         .child(div().size(14).flex_none().when(this.icons, (e) => e.child(svg(statusIcon(task.state.type)).size(14).text_color(task.state.color))))
         .child(div().flex_1().min_w(0).truncate().text_size(13).text_color(finished ? t.muted : t.foreground).child(task.title))
-        .child(div().flex_none().text_size(11).text_color(t.dim).child(task.id)))
-      .child(h_flex().gap(8).pl(22).items_center().min_w(0).text_size(11).text_color(t.dim)
-        .child(h_flex().gap(8).items_center().flex_1().min_w(0).overflow_hidden().children(meta))
-        .child(div().flex_none().child(age(task.updatedAt))));
+        .child(div().flex_none().text_size(11).text_color(t.dim).child(age(task.updatedAt))))
+      .child(h_flex().gap(8).pl(ID_WIDTH + 8).items_center().min_w(0).text_size(11).text_color(t.dim)
+        .children(meta));
+    if (!marks.length) return body;
+    return h_flex().flex_none().min_w(0).items_stretch().pl(10).children(marks.map((m) => this.guide(m, t))).child(body.flex_1());
+  }
+
+  // An issue and, under it, its sub-issues with their guides.
+  branch(node, t, marks = []) {
+    const trunk = marks.map((m) => (m === "├" ? "│" : " "));
+    const last = node.children.length - 1;
+    return [this.row(node.task, t, marks),
+      ...node.children.flatMap((child, i) => this.branch(child, t, [...trunk, i === last ? "└" : "├"]))];
   }
 
   mark(g, t, size = 14) {
@@ -237,7 +258,7 @@ export default class Linear extends View {
   // Finished statuses show a few rows and a "Show more".
   rowsOf(rows, key, finished, t) {
     const limit = finished && !this.more.has(key) ? DONE_ROWS : Infinity;
-    const list = rows.slice(0, limit).flatMap((r) => [this.row(r.task, t, false), ...r.children.map((c) => this.row(c, t, true))]);
+    const list = rows.slice(0, limit).flatMap((r) => this.branch(r, t));
     const left = rows.length - Math.min(rows.length, limit);
     return [...list, ...(left > 0 ? [div().id(`more-${key}`).flex_none().px(10).py(6).text_size(12).text_color(t.muted).cursor_pointer()
       .hover((s) => s.text_color(t.foreground)).on_click((_e, cx) => { this.more.add(key); cx.notify(); }).child(`Show ${left} more`)] : [])];

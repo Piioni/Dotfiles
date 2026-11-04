@@ -139,7 +139,7 @@ export function moveKey(keys, key, target) {
   return next;
 }
 
-const size = (rows) => rows.reduce((n, r) => n + 1 + r.children.length, 0);
+const size = (rows) => rows.reduce((n, r) => n + 1 + size(r.children), 0);
 
 // Groups of rows (and sub-groups when asked); a task whose parent is listed nests under it.
 export function group(tasks, { query = "", view = DEFAULT_VIEW, states = [], order = DEFAULT_ORDER, keepHidden = false } = {}) {
@@ -149,7 +149,9 @@ export function group(tasks, { query = "", view = DEFAULT_VIEW, states = [], ord
   const children = new Map();
   if (nest) for (const t of shown) if (t.parent && ids.has(t.parent)) children.set(t.parent, [...(children.get(t.parent) ?? []), t]);
   const roots = nest ? shown.filter((t) => !(t.parent && ids.has(t.parent))) : shown;
-  const rows = roots.map((task) => ({ task, children: (children.get(task.id) ?? []).sort(cmp) }));
+  // A sub-issue can have sub-issues of its own: the tree goes all the way down.
+  const build = (task) => ({ task, children: (children.get(task.id) ?? []).sort(cmp).map(build) });
+  const rows = roots.map(build);
   const finish = (items) => items.sort((a, b) => cmp(a.task, b.task));
   return arrange(bucket(rows, view.grouping, view.empty ? known(view.grouping, states) : []), order, keepHidden).map(({ items, ...meta }) => {
     if (view.sub === "none") return { ...meta, count: size(items), rows: finish(items), subs: null };

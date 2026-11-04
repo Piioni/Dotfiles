@@ -32,7 +32,7 @@ test("group orders statuses working first and done last, then by Linear position
 test("a sub-issue nests under its parent only when the parent is listed", () => {
   const all = [task("P-1"), task("P-2", { parent: { identifier: "P-1" } }), task("P-3", { parent: { identifier: "P-99" } })];
   const [g] = group(all);
-  assert.deepEqual(g.rows.map((r) => [r.task.id, r.children.map((c) => c.id)]).sort(), [["P-1", ["P-2"]], ["P-3", []]]);
+  assert.deepEqual(g.rows.map((r) => [r.task.id, r.children.map((c) => c.task.id)]).sort(), [["P-1", ["P-2"]], ["P-3", []]]);
   assert.equal(g.count, 3);
 });
 
@@ -174,4 +174,12 @@ test("completed 'all' keeps old finished issues, which the window options drop",
   const now = Date.parse("2026-11-04T00:00:00Z");
   assert.equal(prepare(old, view({ completed: "all" }), now).length, 1);
   assert.equal(prepare(old, view({ completed: "month" }), now).length, 0);
+});
+
+test("sub-issues of sub-issues nest all the way down and every level is counted", () => {
+  const all = [task("P-1"), task("P-2", { parent: { identifier: "P-1" } }), task("P-3", { parent: { identifier: "P-2" } })];
+  const [g] = group(all);
+  assert.equal(g.count, 3);
+  assert.deepEqual(g.rows.map((r) => r.task.id), ["P-1"]);
+  assert.deepEqual(g.rows[0].children.map((c) => [c.task.id, c.children.map((x) => x.task.id)]), [["P-2", ["P-3"]]]);
 });
