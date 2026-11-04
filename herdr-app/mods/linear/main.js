@@ -23,7 +23,18 @@ const cachePath = () => `${appHome()}/data/linear/cache.json`;
 // SOURCE is what the panel lists: My issues or a saved view. VIEWS lists the saved views, BASE holds the display options the source was saved with.
 const VIEW = "issues.view", ORDER = "issues.groupOrder", GROUPS = "issues.groups", SOURCE = "issues.source", VIEWS = "issues.views", BASE = "issues.base";
 // The display options the person changed, kept per source so each view remembers its own.
-const savedPrefs = () => remembered("prefs", {});
+const PREFS = "issues.prefs";
+const savedPrefs = () => shared(PREFS) ?? {};
+// The popups are other instances of this mod and can't read the panel's storage, so these live in a file both can write.
+const settingsPath = () => `${appHome()}/data/linear/settings.json`;
+// What was just set is passed in: a shared value read back in the same moment can still be the old one.
+function persist(patch) {
+  const settings = { prefs: shared(PREFS) ?? {}, order: shared(ORDER) ?? null, ...patch };
+  fs.mkdir(`${appHome()}/data/linear`, { recursive: true })
+    .then(() => fs.writeFile(settingsPath(), JSON.stringify(settings)))
+    .catch(() => {});
+}
+function setOrder(value) { setShared(ORDER, value); persist({ order: value }); }
 const baseOf = () => ({ ...DEFAULT_VIEW, ...(shared(BASE) ?? {}) });
 const viewOf = () => ({ ...DEFAULT_VIEW, ...(shared(VIEW) ?? {}) });
 // The order and hidden groups the person set, per way of grouping.
@@ -79,6 +90,10 @@ export default class Linear extends View {
     cx.spawn(async (cx) => {
       await icons(); this.icons = true;
       const saved = await fs.readFile(cachePath(), "utf8").then(JSON.parse).catch(() => ({}));
+      const settings = await fs.readFile(settingsPath(), "utf8").then(JSON.parse).catch(() => ({}));
+      this.prefs = settings.prefs ?? {};
+      setShared(PREFS, this.prefs);
+      if (settings.order) setShared(ORDER, settings.order);
       this.states = saved.states ?? [];
       this.views = saved.views ?? [];
       setShared(VIEWS, this.views);
@@ -141,7 +156,7 @@ export default class Linear extends View {
   activate(source) {
     const view = this.views.find((v) => v.slug === source);
     const base = view ? fromPrefs(view.prefs) : DEFAULT_VIEW;
-    setShared(SOURCE, source); setShared(BASE, base); setShared(VIEW, savedPrefs()[source] ?? base);
+    setShared(SOURCE, source); setShared(BASE, base); setShared(VIEW, (shared(PREFS) ?? this.prefs ?? {})[source] ?? base);
   }
 
   // The saved views change rarely; a failure leaves the ones already known.
@@ -365,8 +380,10 @@ export default class Linear extends View {
   saveView(next) {
     setShared(VIEW, next);
     const source = shared(SOURCE) ?? MINE;
-    if (JSON.stringify(next) === JSON.stringify(baseOf())) { const { [source]: _drop, ...rest } = savedPrefs(); keep("prefs", rest); }
-    else keep("prefs", { ...savedPrefs(), [source]: next });
+    const { [source]: _drop, ...rest } = savedPrefs();
+    const prefs = JSON.stringify(next) === JSON.stringify(baseOf()) ? rest : { ...rest, [source]: next };
+    setShared(PREFS, prefs);
+    persist({ prefs });
   }
 
   glyph(name, size, color) {
@@ -435,7 +452,7 @@ export default class Linear extends View {
       .child(div().flex_1())
       .child(div().id("reset-view").mt(10).h(28).flex_none().flex().items_center().justify_center().rounded(8).text_size(12)
         .text_color(same ? t.dim : t.foreground).border_1().border_color(t.border)
-        .when(!same, (e) => e.cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => { this.saveView(baseOf()); setShared(ORDER, null); }))
+        .when(!same, (e) => e.cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => { this.saveView(baseOf()); setOrder(null); }))
         .child("Reset to defaults"));
   }
 
@@ -443,7 +460,7 @@ export default class Linear extends View {
 
   saveOrder(keys, hidden) {
     const grouping = viewOf().grouping;
-    setShared(ORDER, { ...(shared(ORDER) ?? {}), [grouping]: { order: keys, hidden } });
+    setOrder({ ...(shared(ORDER) ?? {}), [grouping]: { order: keys, hidden } });
   }
 
   groupsMenu(t) {
@@ -502,7 +519,7 @@ export default class Linear extends View {
           .on_click((_e, cx) => { this.page = "main"; this.drag = null; this.over = null; cx.notify(); }).child(this.glyph("back", 15, t.muted)))
         .child(div().flex_1().text_size(13).font_semibold().child(`Group ordering · ${GROUPINGS[grouping]}`))
         .when(custom, (e) => e.child(div().id("groups-reset").text_size(12).text_color(t.muted).cursor_pointer().hover((s) => s.text_color(t.foreground).underline())
-          .on_click(() => setShared(ORDER, { ...(shared(ORDER) ?? {}), [grouping]: null })).child("Reset"))))
+          .on_click(() => setOrder({ ...(shared(ORDER) ?? {}), [grouping]: null })).child("Reset"))))
       .child(v_flex().id("groups-list").flex_1().min_h(0).overflow_y_scrollbar().p(8)
         .children(metas.map(row))
         .when(!metas.length, (e) => e.child(div().p(12).text_size(12).text_color(t.muted).child("Nothing to order yet"))))
