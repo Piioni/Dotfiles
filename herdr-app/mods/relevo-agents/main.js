@@ -93,20 +93,24 @@ function backgroundTag(t, a, labels) {
     .child(`${glyph}${n}`);
 }
 
-function accountTag(t, a, labels) {
+// At rest a dot in the account's color; under the pointer, a Move button that continues the agent on another account.
+function accountTag(t, a, labels, hovered) {
   const accounts = setup().accounts, acc = accounts[labels["agent.account"]], jira = labels["agent.jira"];
   if (!acc && !jira) return null;
   const tip = [acc && `${acc.label} account`, jira].filter(Boolean).join(" · ");
   // Local agents only: a handoff reads and starts things on this computer.
-  const canMove = Boolean(acc) && !a.address.includes("/");
-  return h_flex().id(`acct-${a.address}`).flex_none().gap(4).items_center().tooltip(canMove ? `${tip} · Click to continue with another account` : tip)
-    .when(canMove, (el) => el.cursor_pointer().on_click((_e, cx) => {
-      cx.stop_propagation();
-      run(`relevo.handoff-agent-${a.address}`);
-    }))
+  const move = Boolean(acc) && !a.address.includes("/") && hovered;
+  return h_flex().id(`acct-${a.address}`).flex_none().gap(6).items_center().tooltip(tip)
     .when(Boolean(jira), (el) => el.child(div().text_size(10.5).text_color(t.dim).child(jira)))
-    .when(Boolean(acc), (el) => el.child(div().size(14).rounded(4).bg(acc.bg).text_color(acc.fg).text_size(9).font_bold()
-      .flex().items_center().justify_center().child(acc.letter)));
+    .when(Boolean(acc) && !move, (el) => el.child(div().size(7).rounded(4).bg(acc.bg)))
+    .when(move, (el) => el.child(div().id(`move-${a.address}`).h(18).px(8).rounded(5).bg(t.accent + "26").text_color(t.accent)
+      .text_size(10.5).font_semibold().flex().items_center().cursor_pointer()
+      .hover((s) => s.bg(t.accent + "40")).tooltip(`${acc.label} account · Continue with another account`)
+      .on_click((_e, cx) => {
+        cx.stop_propagation();
+        run(`relevo.handoff-agent-${a.address}`);
+      })
+      .child("Move")));
 }
 
 export default class Agents extends View {
@@ -365,7 +369,7 @@ export default class Agents extends View {
     const labels = new Map(terminals().map((k) => [k.address, k.labels ?? {}]));
     const row = (a, i, subs = []) => {
       const pic = icon(a.program, 16, t.foreground);
-      const tag = accountTag(t, a, labels.get(a.address) ?? {});
+      const tag = accountTag(t, a, labels.get(a.address) ?? {}, this.hovered === a.address);
       const bg = backgroundTag(t, a, labels.get(a.address) ?? {});
       const more = detail.get(a.address);
       // An agent on another machine (`vps/t7`) says which.

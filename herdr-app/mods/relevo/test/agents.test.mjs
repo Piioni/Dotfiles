@@ -68,39 +68,33 @@ test("nothing is drawn for collapsing unless the sidebar is collapsed", async ()
   assert.equal(find(ui(), "collapse"), null);
 });
 
-test("a local agent's account chip opens the handoff, without focusing it", async () => {
-  fake.stored["relevo.setup"] = { accounts: { personal: { label: "Personal", letter: "P", bg: "#000", fg: "#fff" } } };
-  const { ui, cx } = await open([agent("t1")], [{ address: "t1", state: "live", labels: { "agent.account": "personal" } }]);
-  const chip = find(ui(), "acct-t1");
-  assert.match(chip.tip, /continue with another account/);
+const PERSONAL = { accounts: { personal: { label: "Personal", bg: "#000", fg: "#fff" } } };
+
+test("a local agent shows a Move button under the pointer that opens the handoff, without focusing it", async () => {
+  fake.stored["relevo.setup"] = PERSONAL;
+  const { mod, ui, cx } = await open([agent("t1")], [{ address: "t1", state: "live", labels: { "agent.account": "personal" } }]);
+  assert.equal(find(ui(), "move-t1"), null, "at rest it is only a dot");
+  assert.match(find(ui(), "acct-t1").tip, /^Personal account/);
+  mod.hovered = "t1";
+  const button = find(ui(), "move-t1");
+  assert.match(button.tip, /Continue with another account/);
   let stopped = false;
-  chip.handlers.on_click({}, { ...cx, stop_propagation() { stopped = true; } });
+  button.handlers.on_click({}, { ...cx, stop_propagation() { stopped = true; } });
   assert.deepEqual(fake.runs.at(-1), ["relevo.handoff-agent-t1", undefined]);
   assert.equal(stopped, true);
 });
 
-test("an account chip says only its account, with no borrowed marker", async () => {
-  fake.stored["relevo.setup"] = { accounts: { personal: { label: "Personal", letter: "P", bg: "#000", fg: "#fff" } } };
-  const { ui } = await open([agent("t1")], [{ address: "t1", state: "live", labels: { "agent.account": "personal" } }]);
-  const chip = find(ui(), "acct-t1");
-  assert.match(chip.tip, /^Personal account · /);
-  assert.doesNotMatch(chip.tip, /borrowed/);
-});
-
-test("an agent on another machine has no handoff click", async () => {
-  fake.stored["relevo.setup"] = { accounts: { personal: { label: "Personal", letter: "P", bg: "#000", fg: "#fff" } } };
-  const { ui } = await open([agent("box/t1")], [{ address: "box/t1", state: "live", labels: { "agent.account": "personal", "agent.jira": "AB-1" } }]);
-  const chip = find(ui(), "acct-box/t1");
-  assert.equal(chip.handlers.on_click, undefined);
-  assert.doesNotMatch(chip.tip, /continue with/);
-});
-
-test("a ticket with no account has no handoff click", async () => {
+test("an agent on another machine, or a ticket with no account, never gets a Move button", async () => {
+  fake.stored["relevo.setup"] = PERSONAL;
+  const remote = await open([agent("box/t1")], [{ address: "box/t1", state: "live", labels: { "agent.account": "personal", "agent.jira": "AB-1" } }]);
+  remote.mod.hovered = "box/t1";
+  assert.equal(find(remote.ui(), "move-box/t1"), null);
+  assert.equal(find(remote.ui(), "acct-box/t1").handlers.on_click, undefined);
   fake.stored["relevo.setup"] = { accounts: {} };
-  const { ui } = await open([agent("t1")], [{ address: "t1", state: "live", labels: { "agent.jira": "AB-1" } }]);
-  assert.equal(find(ui(), "acct-t1").handlers.on_click, undefined);
+  const ticket = await open([agent("t1")], [{ address: "t1", state: "live", labels: { "agent.jira": "AB-1" } }]);
+  ticket.mod.hovered = "t1";
+  assert.equal(find(ticket.ui(), "move-t1"), null);
 });
-
 
 async function accounts() {
   fake.props = { role: "accounts" };
