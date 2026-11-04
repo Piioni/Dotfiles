@@ -113,7 +113,7 @@
               "type": "block",
               "window_drag": true,
               "content": {
-                "mod": "tabs"
+                "mod": "relevo-tabs"
               }
             },
             {
@@ -131,14 +131,14 @@
               }
             },
             {
-              "id": "issues-button",
+              "id": "tasks-button",
               "type": "block",
               "size": {
                 "px": 78
               },
               "window_drag": true,
               "content": {
-                "mod": "issues",
+                "mod": "linear",
                 "props": {
                   "button": true
                 }
@@ -152,7 +152,7 @@
               },
               "window_drag": true,
               "content": {
-                "mod": "tabs",
+                "mod": "relevo-tabs",
                 "props": {
                   "panels": true
                 }
@@ -262,10 +262,10 @@
                       }
                     },
                     {
-                      "id": "issues",
+                      "id": "tasks",
                       "type": "block",
                       "content": {
-                        "mod": "issues"
+                        "mod": "linear"
                       }
                     }
                   ]
