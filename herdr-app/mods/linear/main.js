@@ -231,6 +231,12 @@ export default class Linear extends View {
 
   // ---- popups: display options and filter ----
 
+  // As tall as its sections need, up to what fits the window.
+  filterHeight() {
+    const facet = shared(FACETS) ?? {}, sections = FILTERS.filter(([k]) => facet[k]?.length);
+    return Math.min(540, 70 + sections.length * 36 + sections.reduce((n, [k]) => n + facet[k].length * 28, 0));
+  }
+
   setView(patch) { setShared(VIEW, { ...viewOf(), ...patch }); }
 
   select(key, label, options, t, extra = null) {
@@ -263,7 +269,7 @@ export default class Linear extends View {
       .text_color(viewOf().reverse ? t.accent : t.muted).text_size(13).cursor_pointer().hover((s) => s.bg(t.hover)).tooltip("Reverse the order")
       .on_click(() => this.setView({ reverse: !viewOf().reverse })).child("⇅");
     return v_flex().id("issues-view").size_full().min_h(0).overflow_y_scrollbar().p(14).gap(2).bg(t.popover).text_color(t.foreground)
-      .child(div().pb(6).text_size(11).font_semibold().text_color(t.dim).child("DISPLAY"))
+      .child(div().pb(6).text_size(12).text_color(t.dim).child("Display options"))
       .child(this.select("grouping", "Grouping", GROUPINGS, t))
       .child(this.select("sub", "Sub-grouping", GROUPINGS, t))
       .child(this.select("order", "Ordering", ORDERS, t, reverse))
@@ -272,7 +278,7 @@ export default class Linear extends View {
       .child(this.switch("subIssues", "Show sub-issues", t))
       .child(this.switch("triage", "Show triage issues", t))
       .child(div().flex_none().h(1).my(6).bg(t.border))
-      .child(div().pb(4).text_size(11).font_semibold().text_color(t.dim).child("LIST OPTIONS"))
+      .child(div().pb(4).text_size(12).text_color(t.dim).child("List options"))
       .child(this.switch("nested", "Nested sub-issues", t))
       .child(this.switch("empty", "Show empty groups", t))
       .child(div().id("reset-view").pt(10).text_size(12).text_color(same ? t.dim : t.accent).when(!same, (e) => e.cursor_pointer().hover((s) => s.underline()).on_click(() => setShared(VIEW, null)))
@@ -289,7 +295,7 @@ export default class Linear extends View {
     const section = ([field, title]) => {
       const values = facet[field] ?? [];
       if (!values.length) return [];
-      return [div().pt(10).pb(4).text_size(11).font_semibold().text_color(t.dim).child(title.toUpperCase()),
+      return [div().pt(10).pb(4).text_size(11).text_color(t.dim).child(title),
         ...values.map((v) => {
           const on = f[field].includes(field === "priority" ? Number(v.name) : v.name);
           const value = field === "priority" ? Number(v.name) : v.name;
@@ -304,7 +310,7 @@ export default class Linear extends View {
     };
     const any = hasFilter(f);
     return v_flex().id("issues-filter-menu").size_full().min_h(0).overflow_y_scrollbar().p(14).gap(1).bg(t.popover).text_color(t.foreground)
-      .child(h_flex().items_center().child(div().flex_1().text_size(11).font_semibold().text_color(t.dim).child("FILTER"))
+      .child(h_flex().items_center().child(div().flex_1().text_size(12).text_color(t.dim).child("Filter issues"))
         .child(div().id("clear-filter").text_size(12).text_color(any ? t.accent : t.dim).when(any, (e) => e.cursor_pointer().hover((s) => s.underline()).on_click(() => setShared(FILTER, null))).child("Clear")))
       .children(FILTERS.flatMap(section))
       .when(!Object.keys(facet).length, (e) => e.child(div().pt(10).text_size(12).text_color(t.muted).child("Loading…")));
@@ -340,8 +346,8 @@ export default class Linear extends View {
           .child(h_flex().flex_none().p(2).gap(2).rounded(8).border_1().border_color(t.border)
             .children(SCOPE_NAMES.map((s) => this.segment(`scope-${s}`, SCOPE_LABEL[s], this.scope === s, t, (_e, cx) => this.setScope(s, cx)))))
           .child(div().flex_1())
-          .child(this.iconButton("open-filter", "filter", hasFilter(filter), "Filter", () => openOverlay({ mod: "linear", kind: "popup", width: 280, height: 460, props: { menu: "filter" } }), t))
-          .child(this.iconButton("open-view", "sliders", custom, "Display options", () => openOverlay({ mod: "linear", kind: "popup", width: 320, height: 470, props: { menu: "view" } }), t)))
+          .child(this.iconButton("open-filter", "filter", hasFilter(filter), "Filter", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 280, height: this.filterHeight(), props: { menu: "filter" } }), t))
+          .child(this.iconButton("open-view", "sliders", custom, "Display options", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 320, height: 440, props: { menu: "view" } }), t)))
         .child(div().id("linear-filter").h(28).px(9).flex().items_center().rounded(7).border_1().border_color(this.typing ? t.accent : t.border).cursor_text()
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).child(Input.new(this.input).h_full().text_size(12).text_color(t.foreground)))
         .child(h_flex().gap(4).items_center().flex_wrap()
