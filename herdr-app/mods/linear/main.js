@@ -6,7 +6,7 @@ import { readToken, viewer, fetchTasks, fetchViews, searchTasks, MINE, LinearErr
 import {
   normalize, prepare, group, groupMetas, moveKey, GROUPINGS, ORDERS, COMPLETED, DEFAULT_VIEW, fromPrefs, DEFAULT_ORDER, age, isFinished,
 } from "./model.js";
-import { icons, icon, statusIcon, statusName, priorityIcon } from "./icons.js";
+import { icons, icon, statusIcon, statusName, priorityIcon, viewIcon } from "./icons.js";
 
 const REFRESH = 60000;
 const DONE_ROWS = 5;
@@ -285,6 +285,14 @@ export default class Linear extends View {
   // ---- popup: display options ----
 
   // Both the shared options and the per-source copy, so a restart keeps them.
+  // The view's own icon in its color; a dot when Linear's icon isn't one we have.
+  viewMark(v, size, t) {
+    const drawing = viewIcon(v.icon), color = v.color ?? t.dim;
+    return drawing && this.icons
+      ? div().size(size).flex_none().flex().items_center().justify_center().child(svg(drawing).size(size).text_color(color))
+      : div().size(size).flex_none().flex().items_center().justify_center().child(div().size(8).rounded(4).bg(color));
+  }
+
   // As tall as its rows need, up to what fits the window.
   viewsHeight() {
     const list = shared(VIEWS) ?? [], mine = list.filter((v) => v.mine).length;
@@ -298,7 +306,7 @@ export default class Linear extends View {
       return h_flex().id(`view-${v.slug}`).h(30).px(8).gap(8).flex_none().items_center().rounded(7).cursor_pointer()
         .bg(on ? t.selected : t.popover).hover((s) => s.bg(on ? t.selected : t.hover))
         .on_click(() => { setShared(SOURCE, v.slug); closeOverlay(this.overlay); })
-        .child(div().size(8).flex_none().rounded(4).bg(v.color ?? t.dim))
+        .child(this.viewMark(v, 16, t))
         .child(div().flex_1().min_w(0).truncate().text_size(13).child(v.name))
         .when(!v.mine && v.owner, (e) => e.child(div().flex_none().text_size(11).text_color(t.dim).child(v.owner)))
         .when(on, (e) => e.child(this.glyph("check", 14, t.accent)));
@@ -491,7 +499,7 @@ export default class Linear extends View {
         .child(h_flex().h_full().flex_none().min_w(0).gap(2)
           .child(this.tab("source-mine", t, this.scope === MINE, () => setShared(SOURCE, MINE), "My issues"))
           .child(this.tab("source-views", t, Boolean(current), () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 300, height: this.viewsHeight(), props: { menu: "views" } }),
-            current ? div().size(8).flex_none().rounded(4).bg(current.color ?? t.dim) : null,
+            current ? this.viewMark(current, 14, t) : null,
             div().min_w(0).max_w(130).truncate().child(current ? current.name : "Views"),
             div().size(12).flex_none().when(this.icons, (e) => e.child(svg(icon("chev-d")).size(12))))))
         .child(div().flex_1())

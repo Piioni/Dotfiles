@@ -66,10 +66,10 @@ export async function fetchTasks(token, me, source) {
 
 // The issue views of the workspace, with the display options each was saved with.
 export async function fetchViews(token, me) {
-  const data = await gql(token, `{ customViews(first: 100) { nodes { name slugId color modelName owner { id displayName } viewPreferencesValues {
+  const data = await gql(token, `{ customViews(first: 100) { nodes { name slugId icon color modelName owner { id displayName } viewPreferencesValues {
     viewOrdering viewOrderingDirection issueGrouping issueSubGrouping showCompletedIssues showSubIssues showTriageIssues } } } }`);
   return data.customViews.nodes.filter((v) => v.modelName === "Issue").map((v) => ({
-    slug: v.slugId, name: v.name, color: v.color, owner: v.owner?.displayName ?? "", mine: v.owner?.id === me, prefs: v.viewPreferencesValues ?? {},
+    slug: v.slugId, name: v.name, icon: v.icon, color: v.color, owner: v.owner?.displayName ?? "", mine: v.owner?.id === me, prefs: v.viewPreferencesValues ?? {},
   }));
 }
 
