@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalize, group, matches, counts, age, prepare, facets, hasFilter, DEFAULT_VIEW } from "../model.js";
+import { normalize, group, matches, counts, age, prepare, facets, hasFilter, groupMetas, moveKey, DEFAULT_VIEW } from "../model.js";
 
 const raw = (id, over = {}) => ({
   identifier: id, title: `Task ${id}`, url: `https://linear.app/x/issue/${id}`, branchName: id.toLowerCase(), priority: 2,
@@ -150,4 +150,33 @@ test("facets count each value; projects and assignees count None", () => {
   const f = facets(all.map((t) => t));
   assert.deepEqual(f.project.map((p) => [p.name, p.count]), [["(none)", 2], ["P", 1]]);
   assert.deepEqual(f.priority.map((p) => [p.label, p.count]), [["Urgent", 1], ["High", 2]]);
+});
+
+test("a custom group order wins, the groups never placed follow in the default order", () => {
+  const todo = { name: "Todo", type: "unstarted", color: "#ccc", position: 1 }, done = { name: "Done", type: "completed", color: "#0f0", position: 9 };
+  const all = [task("A-1"), task("A-2", { state: todo }), task("A-3", { state: done })];
+  assert.deepEqual(names(group(all)), ["In Progress", "Todo", "Done"]);
+  assert.deepEqual(names(group(all, { order: { order: ["completed:Done", "unstarted:Todo"], hidden: [] } })), ["Done", "Todo", "In Progress"]);
+});
+
+test("hidden groups disappear from the list but stay in the ordering list", () => {
+  const todo = { name: "Todo", type: "unstarted", color: "#ccc", position: 1 };
+  const all = [task("A-1"), task("A-2", { state: todo })];
+  const order = { order: [], hidden: ["unstarted:Todo"] };
+  assert.deepEqual(names(group(all, { order })), ["In Progress"]);
+  const metas = groupMetas(all, { order });
+  assert.deepEqual(metas.map((m) => [m.name, m.hidden]), [["In Progress", false], ["Todo", true]]);
+});
+
+test("the ordering list includes empty statuses of the workflow and nothing when not grouping", () => {
+  const states = [{ name: "Todo", type: "unstarted", color: "#ccc", position: 1 }, { name: "In QA", type: "started", color: "#f90", position: 5 }];
+  assert.deepEqual(groupMetas([task("A-1")], { states }).map((m) => m.name), ["In Progress", "In QA", "Todo"]);
+  assert.deepEqual(groupMetas([task("A-1")], { view: view({ grouping: "none" }) }), []);
+});
+
+test("moveKey puts a key where another sits, both directions, and ignores unknown keys", () => {
+  assert.deepEqual(moveKey(["a", "b", "c", "d"], "a", "c"), ["b", "c", "a", "d"]);
+  assert.deepEqual(moveKey(["a", "b", "c", "d"], "d", "b"), ["a", "d", "b", "c"]);
+  assert.deepEqual(moveKey(["a", "b"], "a", "z"), ["a", "b"]);
+  assert.deepEqual(moveKey(["a", "b"], "a", "a"), ["a", "b"]);
 });

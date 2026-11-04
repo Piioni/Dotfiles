@@ -137,10 +137,35 @@ function bucket(items, by, extra = []) {
   return [...groups.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
 }
 
+export const DEFAULT_ORDER = { order: [], hidden: [] };
+
+// The person's order for the groups (the ones they never placed follow, in the default order), minus the hidden ones.
+function arrange(groups, { order = [], hidden = [] } = DEFAULT_ORDER, keepHidden = false) {
+  const rank = new Map(order.map((k, i) => [k, i]));
+  const at = (g) => (rank.has(g.key) ? rank.get(g.key) : Infinity);
+  const kept = groups.filter((g) => keepHidden || !hidden.includes(g.key));
+  return kept.sort((a, b) => (at(a) === at(b) ? 0 : at(a) - at(b)));
+}
+
+// Every group the current grouping can show, in the person's order, with whether it's hidden: what the ordering list draws.
+export function groupMetas(tasks, { view = DEFAULT_VIEW, states = [], order = DEFAULT_ORDER } = {}) {
+  const all = group(tasks, { view: { ...view, sub: "none", empty: true, nested: false }, states, order, keepHidden: true });
+  return all.filter((g) => view.grouping !== "none").map(({ key, name, color, type, priority, icon }) => ({ key, name, color, type, priority, icon, hidden: order.hidden.includes(key) }));
+}
+
+// Moves one key to the slot another key holds, over a full list of keys.
+export function moveKey(keys, key, target) {
+  const from = keys.indexOf(key), to = keys.indexOf(target);
+  if (from < 0 || to < 0 || from === to) return keys;
+  const next = keys.filter((k) => k !== key);
+  next.splice(to, 0, key);
+  return next;
+}
+
 const size = (rows) => rows.reduce((n, r) => n + 1 + r.children.length, 0);
 
 // Groups of rows (and sub-groups when asked); a task whose parent is listed nests under it.
-export function group(tasks, { query = "", chip = "all", view = DEFAULT_VIEW, states = [] } = {}) {
+export function group(tasks, { query = "", chip = "all", view = DEFAULT_VIEW, states = [], order = DEFAULT_ORDER, keepHidden = false } = {}) {
   const shown = tasks.filter((t) => matches(t, query, chip));
   const ids = new Set(shown.map((t) => t.id)), cmp = comparator(view);
   const nest = view.nested && view.subIssues;
@@ -149,7 +174,7 @@ export function group(tasks, { query = "", chip = "all", view = DEFAULT_VIEW, st
   const roots = nest ? shown.filter((t) => !(t.parent && ids.has(t.parent))) : shown;
   const rows = roots.map((task) => ({ task, children: (children.get(task.id) ?? []).sort(cmp) }));
   const finish = (items) => items.sort((a, b) => cmp(a.task, b.task));
-  return bucket(rows, view.grouping, view.empty ? known(view.grouping, states) : []).map(({ items, ...meta }) => {
+  return arrange(bucket(rows, view.grouping, view.empty ? known(view.grouping, states) : []), order, keepHidden).map(({ items, ...meta }) => {
     if (view.sub === "none") return { ...meta, count: size(items), rows: finish(items), subs: null };
     const subs = bucket(items, view.sub).map(({ items: inner, ...m }) => ({ ...m, count: size(inner), rows: finish(inner) }));
     return { ...meta, count: size(items), rows: [], subs };

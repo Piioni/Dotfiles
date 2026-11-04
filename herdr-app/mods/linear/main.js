@@ -4,9 +4,9 @@ import { exec, run, layout, theme, notify, props, appHome, home, shared, setShar
 import * as fs from "fs/promises";
 import { readToken, viewer, fetchTasks, SCOPE_NAMES, LinearError } from "./api.js";
 import {
-  normalize, prepare, group, counts, facets, hasFilter, CHIPS, GROUPINGS, ORDERS, COMPLETED, DEFAULT_VIEW, DEFAULT_FILTER, age, isFinished,
+  normalize, prepare, group, groupMetas, moveKey, counts, facets, hasFilter, CHIPS, GROUPINGS, ORDERS, COMPLETED, DEFAULT_VIEW, DEFAULT_FILTER, DEFAULT_ORDER, age, isFinished,
 } from "./model.js";
-import { icons, icon, statusIcon, priorityIcon } from "./icons.js";
+import { icons, icon, statusIcon, statusName, priorityIcon } from "./icons.js";
 
 const REFRESH = 60000;
 const DONE_ROWS = 5;
@@ -19,9 +19,11 @@ const tokenPath = () => `${home()}/.config/linear/token`;
 const cachePath = () => `${appHome()}/data/linear/cache.json`;
 
 // What the display options and the filter hold, shared so the panel and its popups agree.
-const VIEW = "issues.view", FILTER = "issues.filter", FACETS = "issues.facets";
+const VIEW = "issues.view", FILTER = "issues.filter", FACETS = "issues.facets", ORDER = "issues.groupOrder", GROUPS = "issues.groups";
 const viewOf = () => ({ ...DEFAULT_VIEW, ...(shared(VIEW) ?? {}) });
 const filterOf = () => ({ ...DEFAULT_FILTER, ...(shared(FILTER) ?? {}) });
+// The order and hidden groups the person set, per way of grouping.
+const orderOf = (grouping) => ({ ...DEFAULT_ORDER, ...((shared(ORDER) ?? {})[grouping] ?? {}) });
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -43,7 +45,8 @@ export default class Linear extends View {
   init(_props, cx) {
     const { menu, overlay, button } = props() ?? {};
     if (menu) {
-      this.menu = menu; this.overlay = overlay; this.picking = null;
+      this.menu = menu; this.overlay = overlay; this.picking = null; this.page = props().page ?? "main"; this.drag = null;
+      cx.spawn(async (cx) => { await icons(); this.icons = true; cx.notify(); });
       return;
     }
     if (button) {
@@ -83,6 +86,13 @@ export default class Linear extends View {
     if (!tasks) return;
     const next = facets(tasks);
     if (JSON.stringify(next) !== JSON.stringify(shared(FACETS))) setShared(FACETS, next);
+  }
+
+  // The ordering popup lists the groups the panel is showing; published after the render, only when they change.
+  publishGroups(tasks, view, order, cx) {
+    const next = { grouping: view.grouping, metas: groupMetas(tasks, { view, states: this.states, order }) };
+    if (JSON.stringify(next) === JSON.stringify(shared(GROUPS))) return;
+    cx.spawn(async () => { setShared(GROUPS, next); });
   }
 
   async refresh(cx, scope = this.scope) {
@@ -236,55 +246,130 @@ export default class Linear extends View {
   // As tall as its sections need, up to what fits the window.
   filterHeight() {
     const facet = shared(FACETS) ?? {}, sections = FILTERS.filter(([k]) => facet[k]?.length);
-    return Math.min(540, 70 + sections.length * 36 + sections.reduce((n, [k]) => n + facet[k].length * 28, 0));
+    return Math.min(540, 70 + sections.length * 36 + sections.reduce((n, [k]) => n + facet[k].length * 30, 0));
   }
 
   setView(patch) { setShared(VIEW, { ...viewOf(), ...patch }); }
 
-  select(key, label, options, t, extra = null) {
+  glyph(name, size, color) {
+    return div().size(size).flex_none().flex().items_center().justify_center().when(this.icons, (e) => e.child(svg(icon(name)).size(size).text_color(color)));
+  }
+
+  title(text, t) { return div().pt(2).pb(8).text_size(12).font_semibold().text_color(t.dim).child(text); }
+
+  rule(t) { return div().flex_none().h(1).my(8).bg(t.border); }
+
+  // A row: its label on the left, its control on the right.
+  field(label, control, t, lead = null) {
+    return h_flex().h(34).flex_none().gap(8).items_center()
+      .child(div().flex_1().min_w(0).truncate().text_size(13).text_color(t.foreground).child(label))
+      .when(Boolean(lead), (e) => e.child(lead))
+      .child(control);
+  }
+
+  select(key, label, options, t, lead = null) {
     const v = viewOf(), open = this.picking === key;
-    return v_flex().flex_none().gap(2)
-      .child(h_flex().h(32).gap(8).items_center()
-        .child(div().flex_1().text_size(13).text_color(t.muted).child(label))
-        .when(Boolean(extra), (e) => e.child(extra))
-        .child(h_flex().id(`pick-${key}`).h(26).w(130).px(8).gap(6).items_center().rounded(6).bg(t.raised).border_1().border_color(open ? t.accent : t.border)
-          .text_size(12).cursor_pointer().hover((s) => s.bg(t.hover)).on_click((_e, cx) => { this.picking = open ? null : key; cx.notify(); })
+    return v_flex().flex_none().gap(4)
+      .child(this.field(label,
+        h_flex().id(`pick-${key}`).h(28).w(136).pl(10).pr(8).gap(6).items_center().rounded(8).bg(t.raised).border_1().border_color(open ? t.accent : t.border)
+          .text_size(12).text_color(t.foreground).cursor_pointer().hover((s) => s.bg(t.hover)).on_click((_e, cx) => { this.picking = open ? null : key; cx.notify(); })
           .child(div().flex_1().truncate().child(options[v[key]]))
-          .child(div().text_size(9).text_color(t.dim).child(open ? "▲" : "▼"))))
-      .when(open, (e) => e.child(v_flex().p(4).gap(1).rounded(6).bg(t.raised).border_1().border_color(t.border)
-        .children(Object.entries(options).map(([k, l]) => h_flex().id(`opt-${key}-${k}`).h(26).px(8).gap(8).items_center().rounded(5).text_size(12).cursor_pointer()
-          .hover((s) => s.bg(t.hover)).on_click((_e, cx) => { this.setView({ [key]: k }); this.picking = null; cx.notify(); })
-          .child(div().w(12).text_color(t.accent).child(v[key] === k ? "✓" : "")).child(l)))));
+          .child(this.glyph(open ? "chev-u" : "chev-d", 12, t.dim)), t, lead))
+      .when(open, (e) => e.child(v_flex().p(4).gap(1).rounded(8).bg(t.raised).border_1().border_color(t.border)
+        .children(Object.entries(options).map(([k, l]) => h_flex().id(`opt-${key}-${k}`).h(28).px(8).gap(8).items_center().rounded(6).text_size(12).cursor_pointer()
+          .bg(v[key] === k ? t.selected : t.raised).hover((s) => s.bg(t.hover)).on_click((_e, cx) => { this.setView({ [key]: k }); this.picking = null; cx.notify(); })
+          .child(div().flex_1().child(l))
+          .child(this.glyph("check", 13, v[key] === k ? t.accent : "#00000000"))))));
   }
 
   switch(key, label, t) {
     const on = viewOf()[key];
-    return h_flex().id(`switch-${key}`).h(32).flex_none().gap(8).items_center().cursor_pointer().on_click(() => this.setView({ [key]: !on }))
-      .child(div().flex_1().text_size(13).text_color(t.muted).child(label))
-      .child(h_flex().w(34).h(20).px(2).items_center().rounded(10).bg(on ? t.accent : t.border).when(on, (e) => e.justify_end())
-        .child(div().size(16).rounded(8).bg("#ffffff")));
+    return h_flex().id(`switch-${key}`).h(34).flex_none().gap(8).items_center().cursor_pointer().on_click(() => this.setView({ [key]: !on }))
+      .child(div().flex_1().text_size(13).text_color(t.foreground).child(label))
+      .child(h_flex().w(36).h(20).px(2).items_center().rounded(10).border_1().border_color(on ? t.accent : t.border).bg(on ? t.accent : t.raised).when(on, (e) => e.justify_end())
+        .child(div().size(14).rounded(7).bg(on ? "#ffffff" : t.dim)));
+  }
+
+  // The small square button beside a select.
+  tool(id, glyph, active, tip, onClick, t) {
+    return div().id(id).size(28).flex_none().flex().items_center().justify_center().rounded(8).border_1().border_color(active ? t.accent : t.border)
+      .bg(active ? t.selected : t.raised).cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(tip).on_click(onClick)
+      .child(this.glyph(glyph, 14, active ? t.accent : t.muted));
   }
 
   viewMenu(t) {
-    const same = JSON.stringify(viewOf()) === JSON.stringify(DEFAULT_VIEW);
-    const reverse = div().id("reverse").size(26).flex_none().flex().items_center().justify_center().rounded(6).border_1().border_color(viewOf().reverse ? t.accent : t.border)
-      .text_color(viewOf().reverse ? t.accent : t.muted).text_size(13).cursor_pointer().hover((s) => s.bg(t.hover)).tooltip("Reverse the order")
-      .on_click(() => this.setView({ reverse: !viewOf().reverse })).child("⇅");
-    return v_flex().id("issues-view").w_full().h(VIEW_HEIGHT).overflow_y_scrollbar().p(14).gap(2).bg(t.popover).text_color(t.foreground)
-      .child(div().pb(6).text_size(12).text_color(t.dim).child("Display options"))
-      .child(this.select("grouping", "Grouping", GROUPINGS, t))
+    if (this.page === "groups") return this.groupsMenu(t);
+    const v = viewOf(), same = JSON.stringify(v) === JSON.stringify(DEFAULT_VIEW) && !Object.values(shared(ORDER) ?? {}).some(Boolean);
+    return v_flex().id("issues-view").w_full().h(VIEW_HEIGHT).overflow_y_scrollbar().px(14).py(12).bg(t.popover).text_color(t.foreground)
+      .child(this.title("Display options", t))
+      .child(this.select("grouping", "Grouping", GROUPINGS, t, v.grouping === "none" ? null
+        : this.tool("group-order", "swap", Boolean((shared(ORDER) ?? {})[v.grouping]), "Group ordering", (_e, cx) => { this.page = "groups"; this.picking = null; cx.notify(); }, t)))
       .child(this.select("sub", "Sub-grouping", GROUPINGS, t))
-      .child(this.select("order", "Ordering", ORDERS, t, reverse))
-      .child(div().flex_none().h(1).my(6).bg(t.border))
+      .child(this.select("order", "Ordering", ORDERS, t, this.tool("reverse", "swap", v.reverse, "Reverse the order", () => this.setView({ reverse: !v.reverse }), t)))
+      .child(this.rule(t))
       .child(this.select("completed", "Completed issues", COMPLETED, t))
       .child(this.switch("subIssues", "Show sub-issues", t))
       .child(this.switch("triage", "Show triage issues", t))
-      .child(div().flex_none().h(1).my(6).bg(t.border))
-      .child(div().pb(4).text_size(12).text_color(t.dim).child("List options"))
+      .child(this.rule(t))
+      .child(this.title("List options", t))
       .child(this.switch("nested", "Nested sub-issues", t))
       .child(this.switch("empty", "Show empty groups", t))
-      .child(div().id("reset-view").pt(10).text_size(12).text_color(same ? t.dim : t.accent).when(!same, (e) => e.cursor_pointer().hover((s) => s.underline()).on_click(() => setShared(VIEW, null)))
+      .child(div().flex_1())
+      .child(div().id("reset-view").mt(10).h(28).flex_none().flex().items_center().justify_center().rounded(8).text_size(12)
+        .text_color(same ? t.dim : t.foreground).border_1().border_color(t.border)
+        .when(!same, (e) => e.cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => { setShared(VIEW, null); setShared(ORDER, null); }))
         .child("Reset to defaults"));
+  }
+
+  // ---- group ordering: drag a row onto another, or use the arrows; the eye hides a group ----
+
+  saveOrder(keys, hidden) {
+    const grouping = viewOf().grouping;
+    setShared(ORDER, { ...(shared(ORDER) ?? {}), [grouping]: { order: keys, hidden } });
+  }
+
+  groupsMenu(t) {
+    const grouping = viewOf().grouping, metas = (shared(GROUPS)?.grouping === grouping ? shared(GROUPS).metas : []) ?? [];
+    const keys = metas.map((m) => m.key), hidden = metas.filter((m) => m.hidden).map((m) => m.key);
+    const move = (key, target, cx) => { this.saveOrder(moveKey(keys, key, target), hidden); cx?.notify(); };
+    const step = (i, by) => keys[i + by] && move(keys[i], keys[i + by]);
+    const row = (m, i) => {
+      const lifted = this.drag === m.key;
+      const mark = m.icon === "status" ? this.glyph(statusName(m.type), 16, m.color)
+        : m.icon === "priority" ? this.glyph(`p${m.priority}`, 16, m.priority === 1 ? t.ansi3 : t.dim)
+        : div().size(10).flex_none().rounded(5).bg(m.color ?? t.dim);
+      const arrow = (id, glyph, enabled, by) => div().id(`${id}-${m.key}`).size(22).flex_none().flex().items_center().justify_center().rounded(5)
+        .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+        .when(enabled, (e) => e.cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => step(i, by))).child(this.glyph(glyph, 13, enabled ? t.muted : "#00000000"));
+      return h_flex().id(`grp-${m.key}`).h(34).flex_none().px(8).gap(10).items_center().rounded(8)
+        .bg(lifted ? t.selected : t.popover).border_1().border_color(lifted ? t.accent : "#00000000")
+        .hover((s) => s.bg(lifted ? t.selected : t.hover))
+        .on_mouse_down("left", (_e, cx) => { this.drag = m.key; cx.notify(); })
+        .on_mouse_up("left", (_e, cx) => { const from = this.drag; this.drag = null; if (from && from !== m.key) move(from, m.key); cx.notify(); })
+        .child(this.glyph("grip", 14, t.dim))
+        .child(mark)
+        .child(div().flex_1().min_w(0).truncate().text_size(13).text_color(m.hidden ? t.dim : t.foreground).child(m.name))
+        .child(arrow("up", "chev-u", i > 0, -1)).child(arrow("down", "chev-d", i < keys.length - 1, 1))
+        .child(div().id(`eye-${m.key}`).size(26).flex_none().flex().items_center().justify_center().rounded(6).cursor_pointer().hover((s) => s.bg(t.raised))
+          .tooltip(m.hidden ? "Show this group" : "Hide this group")
+          .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+          .on_click(() => this.saveOrder(keys, m.hidden ? hidden.filter((k) => k !== m.key) : [...hidden, m.key]))
+          .child(this.glyph(m.hidden ? "eye-off" : "eye", 15, m.hidden ? t.dim : t.foreground)));
+    };
+    const custom = Boolean((shared(ORDER) ?? {})[grouping]);
+    return v_flex().id("issues-groups").w_full().h(VIEW_HEIGHT).bg(t.popover).text_color(t.foreground)
+      .on_mouse_up("left", () => { this.drag = null; })
+      .child(h_flex().h(46).flex_none().px(12).gap(8).items_center().border_b(1).border_color(t.border)
+        .child(div().id("groups-back").size(26).flex().items_center().justify_center().rounded(6).cursor_pointer().hover((s) => s.bg(t.hover))
+          .on_click((_e, cx) => { this.page = "main"; this.drag = null; cx.notify(); }).child(this.glyph("back", 15, t.muted)))
+        .child(div().flex_1().text_size(13).font_semibold().child(`Group ordering · ${GROUPINGS[grouping]}`))
+        .when(custom, (e) => e.child(div().id("groups-reset").text_size(12).text_color(t.accent).cursor_pointer().hover((s) => s.underline())
+          .on_click(() => setShared(ORDER, { ...(shared(ORDER) ?? {}), [grouping]: null })).child("Reset"))))
+      .child(v_flex().id("groups-list").flex_1().min_h(0).overflow_y_scrollbar().p(8).gap(2)
+        .children(metas.map(row))
+        .when(!metas.length, (e) => e.child(div().p(12).text_size(12).text_color(t.muted).child("Nothing to order yet"))))
+      .child(div().flex_none().px(14).py(8).border_t(1).border_color(t.border).text_size(11).text_color(t.dim)
+        .child("Drag a row onto another, or use the arrows. The eye hides a group."));
   }
 
   toggleFilter(field, value) {
@@ -297,22 +382,23 @@ export default class Linear extends View {
     const section = ([field, title]) => {
       const values = facet[field] ?? [];
       if (!values.length) return [];
-      return [div().pt(10).pb(4).text_size(11).text_color(t.dim).child(title),
+      return [h_flex().pt(10).pb(4).px(4).gap(6).items_center().text_size(11).font_semibold().text_color(t.dim).child(title)
+          .when(f[field].length > 0, (e) => e.child(div().px(6).rounded(8).bg(t.accent).text_color("#ffffff").text_size(10).child(String(f[field].length)))),
         ...values.map((v) => {
-          const on = f[field].includes(field === "priority" ? Number(v.name) : v.name);
-          const value = field === "priority" ? Number(v.name) : v.name;
-          return h_flex().id(`flt-${field}-${v.name}`).h(28).px(6).gap(8).flex_none().items_center().rounded(6).cursor_pointer()
-            .hover((s) => s.bg(t.hover)).on_click(() => this.toggleFilter(field, value))
-            .child(h_flex().size(16).flex_none().items_center().justify_center().rounded(4).border_1().border_color(on ? t.accent : t.border).bg(on ? t.accent : t.popover)
-              .text_size(11).text_color("#ffffff").child(on ? "✓" : ""))
+          const value = field === "priority" ? Number(v.name) : v.name, on = f[field].includes(value);
+          return h_flex().id(`flt-${field}-${v.name}`).h(30).px(6).gap(10).flex_none().items_center().rounded(7).cursor_pointer()
+            .bg(on ? t.selected : t.popover).hover((s) => s.bg(on ? t.selected : t.hover)).on_click(() => this.toggleFilter(field, value))
+            .child(h_flex().size(16).flex_none().items_center().justify_center().rounded(5).border_1().border_color(on ? t.accent : t.border).bg(on ? t.accent : t.popover)
+              .when(on, (e) => e.child(this.glyph("check", 12, "#ffffff"))))
+            .when(field === "priority", (e) => e.child(this.glyph(`p${v.name}`, 14, Number(v.name) === 1 ? t.ansi3 : t.dim)))
             .when(Boolean(v.color), (e) => e.child(div().size(8).flex_none().rounded(4).bg(v.color)))
             .child(div().flex_1().min_w(0).truncate().text_size(13).child(v.label ?? v.name))
             .child(div().text_size(11).text_color(t.dim).child(String(v.count)));
         })];
     };
     const any = hasFilter(f);
-    return v_flex().id("issues-filter-menu").w_full().h(this.filterHeight()).overflow_y_scrollbar().p(14).gap(1).bg(t.popover).text_color(t.foreground)
-      .child(h_flex().items_center().child(div().flex_1().text_size(12).text_color(t.dim).child("Filter issues"))
+    return v_flex().id("issues-filter-menu").w_full().h(this.filterHeight()).overflow_y_scrollbar().px(10).py(10).gap(1).bg(t.popover).text_color(t.foreground)
+      .child(h_flex().px(4).pb(2).items_center().child(div().flex_1().text_size(12).font_semibold().text_color(t.dim).child("Filter issues"))
         .child(div().id("clear-filter").text_size(12).text_color(any ? t.accent : t.dim).when(any, (e) => e.cursor_pointer().hover((s) => s.underline()).on_click(() => setShared(FILTER, null))).child("Clear")))
       .children(FILTERS.flatMap(section))
       .when(!Object.keys(facet).length, (e) => e.child(div().pt(10).text_size(12).text_color(t.muted).child("Loading…")));
@@ -328,7 +414,9 @@ export default class Linear extends View {
     if (!entry && this.error && ["token", "auth"].includes(this.error.kind)) return shell.child(this.connect(t));
     const view = viewOf(), filter = filterOf();
     const tasks = prepare(entry?.tasks ?? [], view, filter), c = counts(tasks);
-    const groups = group(tasks, { query: this.query, chip: this.chip, view, states: this.states });
+    const order = orderOf(view.grouping);
+    const groups = group(tasks, { query: this.query, chip: this.chip, view, states: this.states, order });
+    this.publishGroups(tasks, view, order, cx);
     const empty = !entry ? (this.error?.message ?? "Loading issues…") : this.query.trim() || hasFilter(filter) ? "No issues match" : "Nothing here";
     const custom = JSON.stringify(view) !== JSON.stringify(DEFAULT_VIEW);
     return shell
