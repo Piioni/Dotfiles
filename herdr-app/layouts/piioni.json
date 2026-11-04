@@ -145,6 +145,20 @@
               }
             },
             {
+              "id": "panel-buttons",
+              "type": "block",
+              "size": {
+                "px": 158
+              },
+              "window_drag": true,
+              "content": {
+                "mod": "tabs",
+                "props": {
+                  "panels": true
+                }
+              }
+            },
+            {
               "id": "panel-toggle",
               "type": "block",
               "size": {
