@@ -2,7 +2,7 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { exec, run, layout, theme, notify, props, appHome, home, shared, setShared, openOverlay, closeOverlay } from "herdr";
 import * as fs from "fs/promises";
-import { readToken, viewer, fetchTasks, SCOPE_NAMES, LinearError } from "./api.js";
+import { readToken, viewer, fetchTasks, searchTasks, SCOPE_NAMES, LinearError } from "./api.js";
 import {
   normalize, prepare, group, groupMetas, moveKey, GROUPINGS, ORDERS, COMPLETED, DEFAULT_VIEW, DEFAULT_ORDER, age, isFinished,
 } from "./model.js";
@@ -63,7 +63,7 @@ export default class Linear extends View {
     this.states = [];
     this.me = remembered("me", null);
     this.input = InputState.new({ placeholder: "Filter issues" });
-    this.input.on("change", (_e, cx) => { this.query = this.input.value(); cx.notify(); });
+    this.input.on("change", (_e, cx) => { this.query = this.input.value(); this.find(cx); cx.notify(); });
     this.input.on("focus", (_e, cx) => { this.typing = true; cx.notify(); });
     this.input.on("blur", (_e, cx) => { this.typing = false; cx.notify(); });
     cx.spawn(async (cx) => {
@@ -82,6 +82,26 @@ export default class Linear extends View {
     const next = { grouping: view.grouping, metas: groupMetas(tasks, { view, states: this.states, order }) };
     if (JSON.stringify(next) === JSON.stringify(shared(GROUPS))) return;
     cx.spawn(async () => { setShared(GROUPS, next); });
+  }
+
+  // Typing searches the whole workspace, so an issue that isn't yours is found too; until the answer arrives the cached ones are matched.
+  find(cx) {
+    const term = this.query.trim();
+    if (!term) { this.found = null; this.looking = false; return; }
+    if (this.found?.term === term) return;
+    this.looking = true;
+    cx.spawn(async (cx) => {
+      await cx.sleep(300);
+      if (this.query.trim() !== term) return;
+      try {
+        const tasks = (await searchTasks(await readToken(tokenPath()), term)).map(normalize);
+        if (this.query.trim() === term) this.found = { term, tasks };
+      } catch (e) {
+        this.error = e instanceof LinearError ? { kind: e.kind, message: e.message } : { kind: "net", message: "Couldn't reach Linear" };
+      }
+      if (this.query.trim() === term) this.looking = false;
+      cx.notify();
+    });
   }
 
   async refresh(cx, scope = this.scope) {
@@ -384,11 +404,18 @@ export default class Linear extends View {
     const entry = this.data[this.scope];
     if (!entry && this.error && ["token", "auth"].includes(this.error.kind)) return shell.child(this.connect(t));
     const view = viewOf();
-    const tasks = prepare(entry?.tasks ?? [], view);
-    const order = orderOf(view.grouping);
-    const groups = group(tasks, { query: this.query, view, states: this.states, order });
-    this.publishGroups(tasks, view, order, cx);
-    const empty = !entry ? (this.error?.message ?? "Loading issues…") : this.query.trim() ? "No issues match" : "Nothing here";
+    const term = this.query.trim(), order = orderOf(view.grouping);
+    let groups;
+    if (term) {
+      const answer = this.found?.term === term ? this.found.tasks : null;
+      const cached = [...new Map(Object.values(this.data).flatMap((d) => d.tasks).map((t) => [t.id, t])).values()];
+      groups = group(answer ?? cached, { query: answer ? "" : term, view, states: this.states, order: { ...order, hidden: [] } });
+    } else {
+      const tasks = prepare(entry?.tasks ?? [], view);
+      groups = group(tasks, { view, states: this.states, order });
+      this.publishGroups(tasks, view, order, cx);
+    }
+    const empty = !entry ? (this.error?.message ?? "Loading issues…") : term ? (this.looking ? "Searching…" : "No issues match") : "Nothing here";
     return shell
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().size(14).flex_none().when(this.icons, (e) => e.child(svg(icon("task")).size(14).text_color(t.ansi2))))
@@ -399,7 +426,7 @@ export default class Linear extends View {
         .child(div().id("linear-refresh").size(26).flex_none().flex().items_center().justify_center().rounded(7).border_1().border_color(t.border).text_color(t.muted)
           .cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click((_e, cx) => this.refresh(cx))
           .tooltip(entry ? `Refresh · updated ${age(new Date(entry.at).toISOString())} ago` : "Refresh")
-          .child(this.loading
+          .child(this.loading || this.looking
             ? svg("mods/workspace-chrome/spinner.svg").size(12).text_color(t.working).spin(900)
             : div().size(12).when(this.icons, (e) => e.child(svg(icon("refresh")).size(12))))))
       .when(this.error && entry, (e) => e.child(div().flex_none().px(14).py(6).text_size(11).text_color(t.ansi1).border_b(1).border_color(t.border).truncate().child(this.error.message)))

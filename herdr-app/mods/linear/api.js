@@ -3,6 +3,7 @@ import * as fs from "fs/promises";
 const URL = "https://api.linear.app/graphql";
 const OPEN = 150;   // open tasks per scope
 const DONE = 40;    // and the most recently touched finished ones
+const SEARCH = 40;  // results of a workspace search
 const RECENT = "-P30D";
 
 const FIELDS = `identifier title url branchName priority createdAt updatedAt completedAt dueDate
@@ -52,4 +53,10 @@ export const viewer = async (token) => (await gql(token, `{ viewer { id name dis
 export async function fetchTasks(token, me, scope) {
   const data = await gql(token, query(scope, me));
   return { tasks: [...data.open.nodes, ...data.done.nodes], states: data.states.nodes };
+}
+
+// Searches the whole workspace, not only what the person is involved in.
+export async function searchTasks(token, term) {
+  const data = await gql(token, `{ searchIssues(term: ${JSON.stringify(term)}, first: ${SEARCH}) { nodes { ${FIELDS} } } }`);
+  return data.searchIssues.nodes;
 }
