@@ -49,9 +49,17 @@ export default class Changes extends View {
     });
   }
 
-  refresh(cx) {
+  refresh(cx, settled = false) {
     if (this.loading || this.busy) return;
     const { cwd, on } = location(), context = key();
+    if (context !== this.context && this.context !== undefined && !settled) {
+      // While a pane or tab opens, focus passes through other folders for a moment: take a new one only once it holds.
+      if (this.pending !== context) {
+        this.pending = context;
+        cx.timer.after(800, (cx) => { if (this.pending === context) { this.pending = null; if (key() === context) this.refresh(cx, true); } });
+      }
+      return;
+    }
     this.context = context;
     if (!cwd) return;
     this.loading = true;
