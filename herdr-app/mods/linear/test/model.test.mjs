@@ -183,3 +183,10 @@ test("sub-issues of sub-issues nest all the way down and every level is counted"
   assert.deepEqual(g.rows.map((r) => r.task.id), ["P-1"]);
   assert.deepEqual(g.rows[0].children.map((c) => [c.task.id, c.children.map((x) => x.task.id)]), [["P-2", ["P-3"]]]);
 });
+
+test("normalize keeps the assignee's picture and how many open issues it blocks or is blocked by", () => {
+  const t = task("P-1", { assignee: { name: "Ana", displayName: "ana", avatarUrl: "https://x/a.png" }, blocks: { on: 2, by: 1 } });
+  assert.deepEqual([t.avatar, t.blocking, t.blockedBy], ["https://x/a.png", 2, 1]);
+  const none = task("P-2");
+  assert.deepEqual([none.avatar, none.blocking, none.blockedBy], [null, 0, 0]);
+});

@@ -47,7 +47,8 @@ export function normalize(n) {
     createdAt: n.createdAt ?? n.updatedAt, updatedAt: n.updatedAt, completedAt: n.completedAt ?? null, dueDate: n.dueDate ?? null,
     state: { name: n.state.name, type: n.state.type, color: n.state.color, position: n.state.position },
     team: n.team?.key ?? "", project: n.project ?? null, parent: n.parent?.identifier ?? null,
-    assignee: n.assignee ? (n.assignee.displayName || n.assignee.name) : null,
+    assignee: n.assignee ? (n.assignee.displayName || n.assignee.name) : null, avatar: n.assignee?.avatarUrl ?? null,
+    blocking: n.blocks?.on ?? 0, blockedBy: n.blocks?.by ?? 0,
     kids: { total: kids.length, done: kids.filter((k) => isFinished(k.state.type)).length },
     labels: n.labels?.nodes ?? [], prs,
   };

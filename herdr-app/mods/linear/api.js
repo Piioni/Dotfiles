@@ -7,9 +7,9 @@ const SEARCH = 40;  // results of a workspace search
 const VIEW_ISSUES = 250;  // issues of a saved view
 const RECENT = "-P30D";
 
-const FIELDS = `identifier title url branchName priority createdAt updatedAt completedAt dueDate
+const FIELDS = `id identifier title url branchName priority createdAt updatedAt completedAt dueDate
   state { name type color position } team { key } project { name color } parent { identifier }
-  assignee { name displayName }
+  assignee { name displayName avatarUrl }
   children(first: 50) { nodes { state { type } } }
   labels(first: 6) { nodes { name color } }
   attachments(first: 6) { nodes { sourceType url title } }`;
@@ -54,14 +54,36 @@ async function gql(token, query) {
 
 export const viewer = async (token) => (await gql(token, `{ viewer { id name displayName } }`)).viewer;
 
+// How many open issues each one blocks and is blocked by. Linear can't filter relations by type and a page of
+// them is too costly to ask for beside the issues, so only the issues that have blocking relations are asked.
+async function blocksOf(token, nodes) {
+  const open = (state) => !["completed", "canceled"].includes(state?.type);
+  const chunks = [];
+  for (let i = 0; i < nodes.length; i += 100) chunks.push(nodes.slice(i, i + 100).map((n) => n.id));
+  const found = new Map();
+  try {
+    const answers = await Promise.all(chunks.map((ids) => gql(token, `{ issues(first: 100, filter: { id: { in: ${JSON.stringify(ids)} },
+      or: [{ hasBlockedByRelations: { eq: true } }, { hasBlockingRelations: { eq: true } }] }) { nodes { id
+      relations(first: 10) { nodes { type relatedIssue { state { type } } } }
+      inverseRelations(first: 10) { nodes { type issue { state { type } } } } } } }`)));
+    for (const { issues } of answers) for (const n of issues.nodes) {
+      found.set(n.id, {
+        on: n.relations.nodes.filter((r) => r.type === "blocks" && open(r.relatedIssue.state)).length,
+        by: n.inverseRelations.nodes.filter((r) => r.type === "blocks" && open(r.issue.state)).length,
+      });
+    }
+  } catch {}
+  return nodes.map((n) => ({ ...n, blocks: found.get(n.id) ?? null }));
+}
+
 export async function fetchTasks(token, me, source) {
   if (source === MINE) {
     const data = await gql(token, mine(me));
-    return { tasks: [...data.open.nodes, ...data.done.nodes], states: data.states.nodes };
+    return { tasks: await blocksOf(token, [...data.open.nodes, ...data.done.nodes]), states: data.states.nodes };
   }
   const data = await gql(token, saved(source));
   if (!data.view) throw new LinearError("api", "That Linear view no longer exists");
-  return { tasks: data.view.issues.nodes, states: data.states.nodes };
+  return { tasks: await blocksOf(token, data.view.issues.nodes), states: data.states.nodes };
 }
 
 // The issue views of the workspace, with the display options each was saved with.
@@ -76,5 +98,5 @@ export async function fetchViews(token, me) {
 // Searches the whole workspace, not only what the person is involved in.
 export async function searchTasks(token, term) {
   const data = await gql(token, `{ searchIssues(term: ${JSON.stringify(term)}, first: ${SEARCH}) { nodes { ${FIELDS} } } }`);
-  return data.searchIssues.nodes;
+  return blocksOf(token, data.searchIssues.nodes);
 }

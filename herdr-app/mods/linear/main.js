@@ -1,4 +1,4 @@
-import { View, div, svg } from "gpui-kit";
+import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { exec, run, layout, theme, notify, props, appHome, home, shared, setShared, openOverlay, closeOverlay } from "herdr";
 import * as fs from "fs/promises";
@@ -6,6 +6,7 @@ import { readToken, viewer, fetchTasks, fetchViews, searchTasks, MINE, LinearErr
 import {
   normalize, prepare, group, groupMetas, moveKey, GROUPINGS, ORDERS, COMPLETED, DEFAULT_VIEW, fromPrefs, DEFAULT_ORDER, age, isFinished,
 } from "./model.js";
+import { avatarPath, loadAvatar } from "./avatars.js";
 import { icons, icon, statusIcon, statusName, priorityIcon, viewIcon } from "./icons.js";
 
 const REFRESH = 60000;
@@ -187,6 +188,20 @@ export default class Linear extends View {
       .hover((s) => s.text_color(t.foreground)).on_click(onClick).children(kids.filter(Boolean));
   }
 
+  // The person's picture; their initial while it downloads or when they have none.
+  avatar(task, size, t) {
+    const path = avatarPath(task.avatar);
+    if (path) return image(path).size(size).flex_none().rounded(size / 2);
+    return div().size(size).flex_none().rounded(size / 2).flex().items_center().justify_center().bg(t.raised).border_1().border_color(t.border)
+      .text_size(Math.round(size * 0.55)).text_color(t.muted).child(task.assignee.slice(0, 1).toUpperCase());
+  }
+
+  // Downloads the pictures of the people in the list, then draws again.
+  warm(tasks, cx) {
+    const loading = [...new Set(tasks.map((t) => t.avatar))].map(loadAvatar).filter(Boolean);
+    if (loading.length) cx.spawn(async (cx) => { await Promise.all(loading); cx.notify(); });
+  }
+
   pill(id, t, color, ...kids) {
     return h_flex().id(id).h(18).px(6).gap(4).flex_none().items_center().rounded(9).border_1().border_color(t.border).text_size(11).text_color(color).children(kids);
   }
@@ -210,6 +225,10 @@ export default class Linear extends View {
     if (task.project) meta.push(h_flex().gap(4).items_center().min_w(0).max_w(150).text_size(11).text_color(t.muted)
       .child(div().size(7).flex_none().rounded(4).bg(task.project.color ?? t.dim)).child(div().truncate().child(task.project.name)));
     if (task.kids.total > 0) meta.push(this.pill(`kids-${task.id}`, t, t.muted, `${task.kids.done}/${task.kids.total}`));
+    if (task.blockedBy > 0) meta.push(this.pill(`blocked-${task.id}`, t, t.ansi1, this.icons ? svg(icon("blocked")).size(11) : "", String(task.blockedBy))
+      .tooltip(`Blocked by ${task.blockedBy} open ${task.blockedBy === 1 ? "issue" : "issues"}`));
+    if (task.blocking > 0) meta.push(this.pill(`blocking-${task.id}`, t, t.ansi3, this.icons ? svg(icon("blocking")).size(11) : "", String(task.blocking))
+      .tooltip(`Blocking ${task.blocking} open ${task.blocking === 1 ? "issue" : "issues"}`));
     for (const pr of task.prs.slice(0, 2)) meta.push(this.pill(`pr-${task.id}-${pr.number}`, t, t.ansi2,
       this.icons ? svg(icon("pull")).size(11) : "", `#${pr.number}`));
     const body = v_flex().id(`task-${task.id}`).flex_none().min_w(0).pl(marks.length ? 6 : 10).pr(10).py(6).gap(3).rounded(7).cursor_pointer()
@@ -224,7 +243,8 @@ export default class Linear extends View {
         .child(div().w(ID_WIDTH).flex_none().text_size(11).text_color(finished ? t.dim : t.muted).child(task.id))
         .child(div().size(14).flex_none().when(this.icons, (e) => e.child(svg(statusIcon(task.state.type)).size(14).text_color(task.state.color))))
         .child(div().flex_1().min_w(0).truncate().text_size(13).text_color(finished ? t.muted : t.foreground).child(task.title))
-        .child(div().flex_none().text_size(11).text_color(t.dim).child(age(task.updatedAt))))
+        .child(div().flex_none().text_size(11).text_color(t.dim).child(age(task.updatedAt)))
+        .when(Boolean(task.assignee), (e) => e.child(this.avatar(task, 18, t))))
       .child(h_flex().gap(8).pl(ID_WIDTH + 8).items_center().min_w(0).text_size(11).text_color(t.dim)
         .children(meta));
     if (!marks.length) return body;
@@ -508,12 +528,14 @@ export default class Linear extends View {
     if (term) {
       const answer = this.found?.term === term ? this.found.tasks : null;
       const cached = [...new Map(Object.values(this.data).flatMap((d) => d.tasks).map((t) => [t.id, t])).values()];
+      this.warm(answer ?? cached, cx);
       groups = group(answer ?? cached, { query: answer ? "" : term, view, states: this.states, order: { ...order, hidden: [] } });
     } else {
       const tasks = prepare(entry?.tasks ?? [], view);
       groups = group(tasks, { view, states: this.states, order });
       this.publishGroups(tasks, view, order, cx);
     }
+    this.warm(entry?.tasks ?? [], cx);
     const empty = !entry ? (this.error?.message ?? "Loading issues…") : term ? (this.looking ? "Searching…" : "No issues match") : "Nothing here";
     return shell
       .child(h_flex().h(42).flex_none().px(8).gap(8).items_center().border_b(1).border_color(t.border)
