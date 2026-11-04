@@ -10,7 +10,24 @@ export const isFinished = (type) => ["completed", "canceled", "duplicate"].inclu
 
 export const GROUPINGS = { status: "Status", priority: "Priority", project: "Project", assignee: "Assignee", team: "Team", label: "Label", none: "No grouping" };
 export const ORDERS = { priority: "Priority", updated: "Updated", created: "Created", due: "Due date", title: "Title" };
-export const COMPLETED = { none: "None", week: "Past week", month: "Past month" };
+export const COMPLETED = { none: "None", week: "Past week", month: "Past month", all: "All" };
+
+// The display options a Linear view was saved with, as ours. What we can't show falls back to the default.
+const GROUP_OF = { workflowState: "status", priority: "priority", project: "project", assignee: "assignee", team: "team", label: "label" };
+const ORDER_OF = { priority: "priority", dateUpdated: "updated", dateCreated: "created", dueDate: "due", title: "title" };
+const NATURAL = { updated: "desc", created: "desc", due: "asc", title: "asc" };
+const COMPLETED_OF = { all: "all", none: "none", week: "week", month: "month" };
+export function fromPrefs(p = {}) {
+  const order = ORDER_OF[p.viewOrdering] ?? DEFAULT_VIEW.order;
+  return {
+    ...DEFAULT_VIEW,
+    grouping: GROUP_OF[p.issueGrouping] ?? (p.issueGrouping === "none" ? "none" : DEFAULT_VIEW.grouping),
+    sub: GROUP_OF[p.issueSubGrouping] ?? "none",
+    order, reverse: Boolean(NATURAL[order] && p.viewOrderingDirection && p.viewOrderingDirection !== NATURAL[order]),
+    completed: COMPLETED_OF[p.showCompletedIssues] ?? "all",
+    subIssues: p.showSubIssues ?? true, triage: p.showTriageIssues ?? true,
+  };
+}
 
 export const DEFAULT_VIEW = {
   grouping: "status", sub: "none", order: "priority", reverse: false, completed: "month",
@@ -43,7 +60,7 @@ export function matches(task, query) {
 
 // What the display options leave of the tasks, before the text query.
 export function prepare(tasks, view = DEFAULT_VIEW, now = Date.now()) {
-  const span = { none: 0, week: 7 * DAY, month: 30 * DAY }[view.completed] ?? 30 * DAY;
+  const span = { none: 0, week: 7 * DAY, month: 30 * DAY, all: Infinity }[view.completed] ?? 30 * DAY;
   return tasks.filter((t) => {
     if (isFinished(t.state.type) && (!span || now - Date.parse(t.completedAt ?? t.updatedAt) > span)) return false;
     if (!view.subIssues && t.parent) return false;

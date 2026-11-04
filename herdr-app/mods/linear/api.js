@@ -4,6 +4,7 @@ const URL = "https://api.linear.app/graphql";
 const OPEN = 150;   // open tasks per scope
 const DONE = 40;    // and the most recently touched finished ones
 const SEARCH = 40;  // results of a workspace search
+const VIEW_ISSUES = 250;  // issues of a saved view
 const RECENT = "-P30D";
 
 const FIELDS = `identifier title url branchName priority createdAt updatedAt completedAt dueDate
@@ -16,18 +17,21 @@ const FIELDS = `identifier title url branchName priority createdAt updatedAt com
 const OPEN_STATE = `state: { type: { nin: ["completed", "canceled"] } }`;
 const DONE_STATE = `state: { type: { in: ["completed", "canceled"] } }, updatedAt: { gte: "${RECENT}" }`;
 
-const WHO = {
-  assigned: (me) => `assignee: { id: { eq: "${me}" } }`,
-  created: (me) => `creator: { id: { eq: "${me}" } }`,
-  subscribed: (me) => `subscribers: { some: { id: { eq: "${me}" } } }`,
-};
-export const SCOPE_NAMES = Object.keys(WHO);
+export const MINE = "assigned";
 
-// One request per scope: the open tasks, the recently finished ones and the workflow's statuses.
-const query = (scope, me) => `{
-  open: issues(first: ${OPEN}, filter: { ${WHO[scope](me)}, ${OPEN_STATE} }) { nodes { ${FIELDS} } }
-  done: issues(first: ${DONE}, orderBy: updatedAt, filter: { ${WHO[scope](me)}, ${DONE_STATE} }) { nodes { ${FIELDS} } }
-  states: workflowStates(first: 250) { nodes { name type color position } }
+const STATES = `states: workflowStates(first: 250) { nodes { name type color position } }`;
+
+// My issues: the open ones, the recently finished ones and the workflow's statuses.
+const mine = (me) => `{
+  open: issues(first: ${OPEN}, filter: { assignee: { id: { eq: "${me}" } }, ${OPEN_STATE} }) { nodes { ${FIELDS} } }
+  done: issues(first: ${DONE}, orderBy: updatedAt, filter: { assignee: { id: { eq: "${me}" } }, ${DONE_STATE} }) { nodes { ${FIELDS} } }
+  ${STATES}
+}`;
+
+// A saved Linear view: the most recently touched issues it holds.
+const saved = (slug) => `{
+  view: customView(id: ${JSON.stringify(slug)}) { issues(first: ${VIEW_ISSUES}, orderBy: updatedAt) { nodes { ${FIELDS} } } }
+  ${STATES}
 }`;
 
 export class LinearError extends Error {
@@ -50,9 +54,23 @@ async function gql(token, query) {
 
 export const viewer = async (token) => (await gql(token, `{ viewer { id name displayName } }`)).viewer;
 
-export async function fetchTasks(token, me, scope) {
-  const data = await gql(token, query(scope, me));
-  return { tasks: [...data.open.nodes, ...data.done.nodes], states: data.states.nodes };
+export async function fetchTasks(token, me, source) {
+  if (source === MINE) {
+    const data = await gql(token, mine(me));
+    return { tasks: [...data.open.nodes, ...data.done.nodes], states: data.states.nodes };
+  }
+  const data = await gql(token, saved(source));
+  if (!data.view) throw new LinearError("api", "That Linear view no longer exists");
+  return { tasks: data.view.issues.nodes, states: data.states.nodes };
+}
+
+// The issue views of the workspace, with the display options each was saved with.
+export async function fetchViews(token, me) {
+  const data = await gql(token, `{ customViews(first: 100) { nodes { name slugId color modelName owner { id displayName } viewPreferencesValues {
+    viewOrdering viewOrderingDirection issueGrouping issueSubGrouping showCompletedIssues showSubIssues showTriageIssues } } } }`);
+  return data.customViews.nodes.filter((v) => v.modelName === "Issue").map((v) => ({
+    slug: v.slugId, name: v.name, color: v.color, owner: v.owner?.displayName ?? "", mine: v.owner?.id === me, prefs: v.viewPreferencesValues ?? {},
+  }));
 }
 
 // Searches the whole workspace, not only what the person is involved in.

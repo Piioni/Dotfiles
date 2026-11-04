@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalize, group, matches, age, prepare, groupMetas, moveKey, DEFAULT_VIEW } from "../model.js";
+import { normalize, group, matches, age, prepare, groupMetas, moveKey, fromPrefs, DEFAULT_VIEW } from "../model.js";
 
 const raw = (id, over = {}) => ({
   identifier: id, title: `Task ${id}`, url: `https://linear.app/x/issue/${id}`, branchName: id.toLowerCase(), priority: 2,
@@ -156,4 +156,22 @@ test("moveKey puts a key where another sits, both directions, and ignores unknow
   assert.deepEqual(moveKey(["a", "b", "c", "d"], "d", "b"), ["a", "d", "b", "c"]);
   assert.deepEqual(moveKey(["a", "b"], "a", "z"), ["a", "b"]);
   assert.deepEqual(moveKey(["a", "b"], "a", "a"), ["a", "b"]);
+});
+
+test("a Linear view's preferences become display options; what we can't show falls back", () => {
+  const v = fromPrefs({ viewOrdering: "dateUpdated", viewOrderingDirection: "desc", issueGrouping: "workflowState", issueSubGrouping: "none", showCompletedIssues: "all", showSubIssues: true, showTriageIssues: false });
+  assert.deepEqual(v, { ...DEFAULT_VIEW, order: "updated", reverse: false, completed: "all", triage: false });
+  assert.equal(fromPrefs({ viewOrdering: "dateUpdated", viewOrderingDirection: "asc" }).reverse, true);
+  assert.equal(fromPrefs({ viewOrdering: "estimate", viewOrderingDirection: "asc" }).order, "priority");
+  assert.equal(fromPrefs({ issueGrouping: "cycle", issueSubGrouping: "project" }).grouping, "status");
+  assert.equal(fromPrefs({ issueGrouping: "cycle", issueSubGrouping: "project" }).sub, "project");
+  assert.equal(fromPrefs({ issueGrouping: "none" }).grouping, "none");
+});
+
+test("completed 'all' keeps old finished issues, which the window options drop", () => {
+  const done = { name: "Done", type: "completed", color: "#0f0", position: 9 };
+  const old = [task("A-1", { state: done, completedAt: "2025-01-01T00:00:00Z" })];
+  const now = Date.parse("2026-11-04T00:00:00Z");
+  assert.equal(prepare(old, view({ completed: "all" }), now).length, 1);
+  assert.equal(prepare(old, view({ completed: "month" }), now).length, 0);
 });

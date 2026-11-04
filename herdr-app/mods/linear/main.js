@@ -2,15 +2,15 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { exec, run, layout, theme, notify, props, appHome, home, shared, setShared, openOverlay, closeOverlay } from "herdr";
 import * as fs from "fs/promises";
-import { readToken, viewer, fetchTasks, searchTasks, SCOPE_NAMES, LinearError } from "./api.js";
+import { readToken, viewer, fetchTasks, fetchViews, searchTasks, MINE, LinearError } from "./api.js";
 import {
-  normalize, prepare, group, groupMetas, moveKey, GROUPINGS, ORDERS, COMPLETED, DEFAULT_VIEW, DEFAULT_ORDER, age, isFinished,
+  normalize, prepare, group, groupMetas, moveKey, GROUPINGS, ORDERS, COMPLETED, DEFAULT_VIEW, fromPrefs, DEFAULT_ORDER, age, isFinished,
 } from "./model.js";
 import { icons, icon, statusIcon, statusName, priorityIcon } from "./icons.js";
 
 const REFRESH = 60000;
 const DONE_ROWS = 5;
-const SCOPE_LABEL = { assigned: "Assigned", created: "Created", subscribed: "Subscribed" };
+const VIEWS_TTL = 10 * 60000;
 // Popups take their height from the root element: a percentage of an unsized popup is zero.
 const VIEW_HEIGHT = 405;
 const SAVE_KEY = `input -s "Linear key: " | save -f ~/.config/linear/token; chmod 600 ~/.config/linear/token`;
@@ -18,7 +18,11 @@ const tokenPath = () => `${home()}/.config/linear/token`;
 const cachePath = () => `${appHome()}/data/linear/cache.json`;
 
 // What the display options hold, shared so the panel and its popups agree.
-const VIEW = "issues.view", ORDER = "issues.groupOrder", GROUPS = "issues.groups";
+// SOURCE is what the panel lists: My issues or a saved view. VIEWS lists the saved views, BASE holds the display options the source was saved with.
+const VIEW = "issues.view", ORDER = "issues.groupOrder", GROUPS = "issues.groups", SOURCE = "issues.source", VIEWS = "issues.views", BASE = "issues.base";
+// The display options the person changed, kept per source so each view remembers its own.
+const savedPrefs = () => remembered("prefs", {});
+const baseOf = () => ({ ...DEFAULT_VIEW, ...(shared(BASE) ?? {}) });
 const viewOf = () => ({ ...DEFAULT_VIEW, ...(shared(VIEW) ?? {}) });
 // The order and hidden groups the person set, per way of grouping.
 const orderOf = (grouping) => ({ ...DEFAULT_ORDER, ...((shared(ORDER) ?? {})[grouping] ?? {}) });
@@ -55,7 +59,11 @@ export default class Linear extends View {
       cx.spawn(async (cx) => { await icons(); this.icons = true; cx.notify(); });
       return;
     }
-    this.scope = SCOPE_NAMES.includes(remembered("scope")) ? remembered("scope") : "assigned";
+    const last = remembered("scope", MINE);
+    this.scope = typeof last === "string" && !["created", "subscribed"].includes(last) ? last : MINE;
+    this.views = [];
+    this.viewsAt = 0;
+    setShared(SOURCE, this.scope);
     this.collapsed = new Set(remembered("collapsed", []));
     this.more = new Set();
     this.query = "";
@@ -70,6 +78,9 @@ export default class Linear extends View {
       await icons(); this.icons = true;
       const saved = await fs.readFile(cachePath(), "utf8").then(JSON.parse).catch(() => ({}));
       this.states = saved.states ?? [];
+      this.views = saved.views ?? [];
+      setShared(VIEWS, this.views);
+      this.activate(this.scope);
       for (const [scope, d] of Object.entries(saved.scopes ?? {})) this.data[scope] ??= d;
       cx.notify();
       await this.refresh(cx);
@@ -115,7 +126,8 @@ export default class Linear extends View {
       this.states = states;
       this.error = null;
       await fs.mkdir(`${appHome()}/data/linear`, { recursive: true });
-      await fs.writeFile(cachePath(), JSON.stringify({ scopes: this.data, states }));
+      await this.loadViews(token);
+      await fs.writeFile(cachePath(), JSON.stringify({ scopes: this.data, states, views: this.views }));
     } catch (e) {
       this.error = e instanceof LinearError ? { kind: e.kind, message: e.message } : { kind: "net", message: "Couldn't reach Linear" };
     } finally {
@@ -123,8 +135,28 @@ export default class Linear extends View {
     }
   }
 
+  // The source's own display options, unless the person changed them.
+  activate(source) {
+    const view = this.views.find((v) => v.slug === source);
+    const base = view ? fromPrefs(view.prefs) : DEFAULT_VIEW;
+    setShared(SOURCE, source); setShared(BASE, base); setShared(VIEW, savedPrefs()[source] ?? base);
+  }
+
+  // The saved views change rarely; a failure leaves the ones already known.
+  async loadViews(token) {
+    if (this.views.length && Date.now() - this.viewsAt < VIEWS_TTL) return;
+    try {
+      this.views = await fetchViews(token, this.me);
+      this.viewsAt = Date.now();
+      setShared(VIEWS, this.views);
+      if (this.scope !== MINE && !this.views.some((v) => v.slug === this.scope)) this.setScope(MINE, { notify() {} });
+      else this.activate(this.scope);
+    } catch {}
+  }
+
   setScope(scope, cx) {
-    this.scope = scope; keep("scope", scope); this.more.clear();
+    if (scope === this.scope) return;
+    this.scope = scope; keep("scope", scope); this.more.clear(); this.activate(scope);
     if (!this.data[scope] || Date.now() - this.data[scope].at > REFRESH) this.refresh(cx, scope);
     cx.notify();
   }
@@ -251,7 +283,41 @@ export default class Linear extends View {
 
   // ---- popup: display options ----
 
-  setView(patch) { setShared(VIEW, { ...viewOf(), ...patch }); }
+  // Both the shared options and the per-source copy, so a restart keeps them.
+  // As tall as its rows need, up to what fits the window.
+  viewsHeight() {
+    const list = shared(VIEWS) ?? [], mine = list.filter((v) => v.mine).length;
+    return Math.min(480, 64 + list.length * 31 + (mine && list.length > mine ? 2 : 1) * 26);
+  }
+
+  viewsMenu(t) {
+    const list = shared(VIEWS) ?? [], current = shared(SOURCE) ?? MINE;
+    const row = (v) => {
+      const on = v.slug === current;
+      return h_flex().id(`view-${v.slug}`).h(30).px(8).gap(8).flex_none().items_center().rounded(7).cursor_pointer()
+        .bg(on ? t.selected : t.popover).hover((s) => s.bg(on ? t.selected : t.hover))
+        .on_click(() => { setShared(SOURCE, v.slug); closeOverlay(this.overlay); })
+        .child(div().size(8).flex_none().rounded(4).bg(v.color ?? t.dim))
+        .child(div().flex_1().min_w(0).truncate().text_size(13).child(v.name))
+        .when(!v.mine && v.owner, (e) => e.child(div().flex_none().text_size(11).text_color(t.dim).child(v.owner)))
+        .when(on, (e) => e.child(this.glyph("check", 14, t.accent)));
+    };
+    const section = (title, items) => items.length ? [div().pt(8).pb(4).px(4).text_size(11).font_semibold().text_color(t.dim).child(title), ...items.map(row)] : [];
+    const mine = list.filter((v) => v.mine), others = list.filter((v) => !v.mine);
+    return v_flex().id("issues-views").w_full().h(this.viewsHeight()).overflow_y_scrollbar().px(10).py(10).gap(1).bg(t.popover).text_color(t.foreground)
+      .child(div().px(4).pb(2).text_size(12).font_semibold().text_color(t.dim).child("Views"))
+      .children([...section(others.length ? "Yours" : "", mine), ...section("Shared with you", others)])
+      .when(!list.length, (e) => e.child(div().pt(10).px(4).text_size(12).text_color(t.muted).child("Loading…")));
+  }
+
+  setView(patch) { this.saveView({ ...viewOf(), ...patch }); }
+
+  saveView(next) {
+    setShared(VIEW, next);
+    const source = shared(SOURCE) ?? MINE;
+    if (JSON.stringify(next) === JSON.stringify(baseOf())) { const { [source]: _drop, ...rest } = savedPrefs(); keep("prefs", rest); }
+    else keep("prefs", { ...savedPrefs(), [source]: next });
+  }
 
   glyph(name, size, color) {
     return div().size(size).flex_none().flex().items_center().justify_center().when(this.icons, (e) => e.child(svg(icon(name)).size(size).text_color(color)));
@@ -301,7 +367,7 @@ export default class Linear extends View {
 
   viewMenu(t) {
     if (this.page === "groups") return this.groupsMenu(t);
-    const v = viewOf(), same = JSON.stringify(v) === JSON.stringify(DEFAULT_VIEW) && !Object.values(shared(ORDER) ?? {}).some(Boolean);
+    const v = viewOf(), same = JSON.stringify(v) === JSON.stringify(baseOf()) && !Object.values(shared(ORDER) ?? {}).some(Boolean);
     return v_flex().id("issues-view").w_full().h(VIEW_HEIGHT).overflow_y_scrollbar().px(14).py(12).bg(t.popover).text_color(t.foreground)
       .child(this.title("Display options", t))
       .child(this.select("grouping", "Grouping", GROUPINGS, t, v.grouping === "none" ? null
@@ -319,7 +385,7 @@ export default class Linear extends View {
       .child(div().flex_1())
       .child(div().id("reset-view").mt(10).h(28).flex_none().flex().items_center().justify_center().rounded(8).text_size(12)
         .text_color(same ? t.dim : t.foreground).border_1().border_color(t.border)
-        .when(!same, (e) => e.cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => { setShared(VIEW, null); setShared(ORDER, null); }))
+        .when(!same, (e) => e.cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => { this.saveView(baseOf()); setShared(ORDER, null); }))
         .child("Reset to defaults"));
   }
 
@@ -399,12 +465,15 @@ export default class Linear extends View {
   render(cx) {
     const t = theme();
     if (this.menu === "view") return this.viewMenu(t);
+    if (this.menu === "views") return this.viewsMenu(t);
     if (this.button) return this.toolbar(t);
     const shell = v_flex().id("linear").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13);
+    const wanted = shared(SOURCE) ?? this.scope;
+    if (wanted !== this.scope) cx.spawn(async (cx) => this.setScope(wanted, cx));
     const entry = this.data[this.scope];
     if (!entry && this.error && ["token", "auth"].includes(this.error.kind)) return shell.child(this.connect(t));
     const view = viewOf();
-    const term = this.query.trim(), order = orderOf(view.grouping);
+    const term = this.query.trim(), order = orderOf(view.grouping), current = this.views.find((v) => v.slug === this.scope);
     let groups;
     if (term) {
       const answer = this.found?.term === term ? this.found.tasks : null;
@@ -432,8 +501,10 @@ export default class Linear extends View {
       .when(this.error && entry, (e) => e.child(div().flex_none().px(14).py(6).text_size(11).text_color(t.ansi1).border_b(1).border_color(t.border).truncate().child(this.error.message)))
       .child(v_flex().flex_none().p(8).gap(6).border_b(1).border_color(t.border)
         .child(h_flex().gap(6).items_center()
-          .child(h_flex().flex_none().p(2).gap(2).rounded(8).border_1().border_color(t.border)
-            .children(SCOPE_NAMES.map((s) => this.segment(`scope-${s}`, SCOPE_LABEL[s], this.scope === s, t, (_e, cx) => this.setScope(s, cx)))))
+          .child(h_flex().flex_none().min_w(0).p(2).gap(2).rounded(8).border_1().border_color(t.border)
+            .child(this.segment("source-mine", "My issues", this.scope === MINE, t, () => setShared(SOURCE, MINE)))
+            .child(this.segment("source-views", `${current ? current.name.slice(0, 24) : "Views"} ▾`, Boolean(current), t,
+              () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 300, height: this.viewsHeight(), props: { menu: "views" } }))))
           .child(div().flex_1())
           .child(this.iconButton("open-view", "sliders", "Display options", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 320, height: VIEW_HEIGHT, props: { menu: "view" } }), t))))
       .child(v_flex().id("linear-list").flex_1().min_h(0).overflow_y_scrollbar().p(6).gap(6)
