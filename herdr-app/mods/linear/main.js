@@ -234,10 +234,10 @@ export default class Linear extends View {
       bad ? "Create a new personal API key (Read) and save it again." : "Create a personal API key (Read) in Linear → Settings → Security & access, then save it with the command below in a nushell terminal.", copy);
   }
 
-  iconButton(id, glyph, active, tip, onClick, t) {
+  iconButton(id, glyph, tip, onClick, t) {
     return div().id(id).size(28).flex_none().flex().items_center().justify_center().rounded(7).border_1()
-      .border_color(active ? t.dim : t.border).bg(active ? t.selected : t.background).text_color(active ? t.foreground : t.muted).cursor_pointer()
-      .hover((s) => s.bg(active ? t.selected : t.hover).text_color(t.foreground)).tooltip(tip).on_click(onClick)
+      .border_color(t.border).text_color(t.muted).cursor_pointer()
+      .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(tip).on_click(onClick)
       .when(this.icons, (e) => e.child(svg(icon(glyph)).size(14)));
   }
 
@@ -291,10 +291,10 @@ export default class Linear extends View {
   }
 
   // The small square button beside a select.
-  tool(id, glyph, active, tip, onClick, t) {
-    return div().id(id).size(28).flex_none().flex().items_center().justify_center().rounded(8).border_1().border_color(active ? t.dim : t.border)
-      .bg(active ? t.selected : t.raised).cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(tip).on_click(onClick)
-      .child(this.glyph(glyph, 14, active ? t.foreground : t.muted));
+  tool(id, glyph, tip, onClick, t) {
+    return div().id(id).size(28).flex_none().flex().items_center().justify_center().rounded(8).border_1().border_color(t.border)
+      .bg(t.raised).cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(tip).on_click(onClick)
+      .child(this.glyph(glyph, 14, t.muted));
   }
 
   viewMenu(t) {
@@ -303,9 +303,9 @@ export default class Linear extends View {
     return v_flex().id("issues-view").w_full().h(VIEW_HEIGHT).overflow_y_scrollbar().px(14).py(12).bg(t.popover).text_color(t.foreground)
       .child(this.title("Display options", t))
       .child(this.select("grouping", "Grouping", GROUPINGS, t, v.grouping === "none" ? null
-        : this.tool("group-order", "swap", Boolean((shared(ORDER) ?? {})[v.grouping]), "Group ordering", (_e, cx) => { this.page = "groups"; this.picking = null; cx.notify(); }, t)))
+        : this.tool("group-order", "swap", "Group ordering", (_e, cx) => { this.page = "groups"; this.picking = null; cx.notify(); }, t)))
       .child(this.select("sub", "Sub-grouping", GROUPINGS, t))
-      .child(this.select("order", "Ordering", ORDERS, t, this.tool("reverse", "swap", v.reverse, "Reverse the order", () => this.setView({ reverse: !v.reverse }), t)))
+      .child(this.select("order", "Ordering", ORDERS, t, this.tool("reverse", "swap", "Reverse the order", () => this.setView({ reverse: !v.reverse }), t)))
       .child(this.rule(t))
       .child(this.select("completed", "Completed issues", COMPLETED, t))
       .child(this.switch("subIssues", "Show sub-issues", t))
@@ -440,7 +440,6 @@ export default class Linear extends View {
     const groups = group(tasks, { query: this.query, chip: this.chip, view, states: this.states, order });
     this.publishGroups(tasks, view, order, cx);
     const empty = !entry ? (this.error?.message ?? "Loading issues…") : this.query.trim() || hasFilter(filter) ? "No issues match" : "Nothing here";
-    const custom = JSON.stringify(view) !== JSON.stringify(DEFAULT_VIEW);
     return shell
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().size(14).flex_none().when(this.icons, (e) => e.child(svg(icon("task")).size(14).text_color(t.ansi2))))
@@ -458,8 +457,8 @@ export default class Linear extends View {
           .child(h_flex().flex_none().p(2).gap(2).rounded(8).border_1().border_color(t.border)
             .children(SCOPE_NAMES.map((s) => this.segment(`scope-${s}`, SCOPE_LABEL[s], this.scope === s, t, (_e, cx) => this.setScope(s, cx)))))
           .child(div().flex_1())
-          .child(this.iconButton("open-filter", "filter", hasFilter(filter), "Filter", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 280, height: this.filterHeight(), props: { menu: "filter" } }), t))
-          .child(this.iconButton("open-view", "sliders", custom, "Display options", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 320, height: VIEW_HEIGHT, props: { menu: "view" } }), t)))
+          .child(this.iconButton("open-filter", "filter", "Filter", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 280, height: this.filterHeight(), props: { menu: "filter" } }), t))
+          .child(this.iconButton("open-view", "sliders", "Display options", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 320, height: VIEW_HEIGHT, props: { menu: "view" } }), t)))
         .child(div().id("linear-filter").h(28).px(9).flex().items_center().rounded(7).border_1().border_color(this.typing ? t.accent : t.border).cursor_text()
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).child(Input.new(this.input).h_full().text_size(12).text_color(t.foreground)))
         .child(h_flex().gap(4).items_center().flex_wrap()
