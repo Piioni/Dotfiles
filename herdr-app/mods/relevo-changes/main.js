@@ -134,15 +134,33 @@ export default class Changes extends View {
 
   setView(view, cx) { this.view = view; store.set("view", view); cx.notify(); }
 
-  // Changed files grouped by their own folder, folders sorted, the repo root first.
-  groups() {
-    const map = new Map();
+  // The changed files as a folder tree.
+  tree() {
+    const root = { name: "", path: "", dirs: new Map(), files: [] };
     for (const f of this.files) {
-      const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
-      if (!map.has(dir)) map.set(dir, []);
-      map.get(dir).push(f);
+      let node = root;
+      for (const part of f.path.split("/").slice(0, -1)) {
+        if (!node.dirs.has(part)) node.dirs.set(part, { name: part, path: node.path ? `${node.path}/${part}` : part, dirs: new Map(), files: [] });
+        node = node.dirs.get(part);
+      }
+      node.files.push(f);
     }
-    return [...map].sort(([a], [b]) => a.localeCompare(b));
+    return root;
+  }
+
+  // A folder with no files of its own and a single subfolder shows as one row ("a/b").
+  fold(node) {
+    let n = node, label = node.name;
+    while (!n.files.length && n.dirs.size === 1) { n = n.dirs.values().next().value; label += `/${n.name}`; }
+    return { n, label };
+  }
+
+  under(node) { return [...node.files, ...[...node.dirs.values()].flatMap((d) => this.under(d))]; }
+
+  // The key of every folder row the tree shows, for Collapse all.
+  dirKeys(node = this.tree(), keys = []) {
+    for (const d of node.dirs.values()) { const { n } = this.fold(d); keys.push(n.path); this.dirKeys(n, keys); }
+    return keys;
   }
 
   seg(t, options, current, pick) {
@@ -152,29 +170,39 @@ export default class Changes extends View {
         .on_click((_e, cx) => pick(id, cx)).child(label)));
   }
 
-  group(dir, files, t) {
-    const closed = this.collapsed.has(dir);
-    const add = files.reduce((n, f) => n + f.add, 0), del = files.reduce((n, f) => n + f.del, 0);
-    const head = h_flex().id(`dir-${dir}`).h(30).flex_none().px(8).gap(8).items_center().rounded(7).cursor_pointer().hover((s) => s.bg(t.hover))
-      .on_click((_e, cx) => { if (closed) this.collapsed.delete(dir); else this.collapsed.add(dir); cx.notify(); })
+  // Subfolders first, then files, like Files. `depth` is how many folder levels sit above these entries.
+  entries(node, depth, t) {
+    const dirs = [...node.dirs.values()].sort((a, b) => a.name.localeCompare(b.name));
+    const files = [...node.files].sort((a, b) => a.path.localeCompare(b.path));
+    return [...dirs.flatMap((d) => this.dirNode(d, depth, t)), ...files.map((f) => this.row(f, t, depth))];
+  }
+
+  // One folder row, then what it holds indented under it with a guide line.
+  dirNode(node, depth, t) {
+    const { n, label } = this.fold(node), closed = this.collapsed.has(n.path), files = this.under(n);
+    const add = files.reduce((s, f) => s + f.add, 0), del = files.reduce((s, f) => s + f.del, 0);
+    const head = h_flex().id(`dir-${n.path}`).h(30).flex_none().pl(8 + depth * 18).pr(8).gap(8).items_center().rounded(7).cursor_pointer().hover((s) => s.bg(t.hover))
+      .on_click((_e, cx) => { if (closed) this.collapsed.delete(n.path); else this.collapsed.add(n.path); cx.notify(); })
       .child(div().w(12).flex_none().text_size(10).text_color(t.dim).child(closed ? "▸" : "▾"))
-      .child(image(iconFor(dir.split("/").pop(), true, !closed)).size(18).flex_none())
-      .child(div().flex_1().min_w(0).truncate().text_size(13).child(dir || "(root)"))
+      .child(image(iconFor(n.name, true, !closed)).size(18).flex_none())
+      .child(div().flex_1().min_w(0).truncate().text_size(13).child(label))
       .child(div().px(6).h(16).flex().items_center().rounded(8).bg(t.raised).text_size(10).text_color(t.dim).child(String(files.length)))
       .when(add > 0, (e) => e.child(div().text_size(10).text_color(t.ansi2).child(`+${add}`)))
       .when(del > 0, (e) => e.child(div().text_size(10).text_color(t.ansi1).child(`−${del}`)));
     if (closed) return [head];
-    // The guide runs under the folder icon (8 padding + 12 arrow + 8 gap + half of the 18px icon) down the whole group.
+    // The guide runs under this folder's icon: 8 padding + 12 arrow + 8 gap + half of the 18px icon, plus 18 per level.
     const guide = t.dim.length === 7 ? t.dim + "55" : t.dim;
-    return [head, v_flex().flex_none().relative().children(files.map((f) => this.row(f, t, false)))
-      .child(div().absolute().left(37).top(0).bottom(0).w(1).bg(guide))];
+    return [head, v_flex().flex_none().relative().children(this.entries(n, depth + 1, t))
+      .child(div().absolute().left(37 + depth * 18).top(0).bottom(0).w(1).bg(guide))];
   }
 
-  row(f, t, showPath = true) {
+  // `depth` undefined is the flat list (icon, name and folder); a number is a file under that many folders.
+  row(f, t, depth) {
+    const flat = depth === undefined, showPath = flat;
     const parts = f.path.split("/"), name = parts.pop();
     const color = f.status === "A" ? t.ansi2 : f.status === "M" ? t.blocked : t.ansi1;
     const gone = f.status === "D", hovered = this.hover === f.path;
-    return h_flex().id(`change-${f.path}`).h(showPath ? 38 : 30).flex_none().pl(showPath ? 8 : 46).pr(8).gap(9).items_center().rounded(7).cursor_pointer()
+    return h_flex().id(`change-${f.path}`).h(flat ? 38 : 30).flex_none().pl(flat ? 8 : 28 + depth * 18).pr(8).gap(9).items_center().rounded(7).cursor_pointer()
       .when(this.open === f.path, (e) => e.bg(t.selected)).hover((s) => s.bg(t.hover))
       .on_hover((over, cx) => { if (over) this.hover = f.path; else if (this.hover === f.path) this.hover = null; cx.notify(); })
       .on_click((e, cx) => this.openDiff(f, e.modifiers.shift, cx))
@@ -206,13 +234,14 @@ export default class Changes extends View {
         .child(this.seg(t, [["flat", "Flat"], ["folders", "Folders"]], this.view, (id, cx) => this.setView(id, cx)))
         .child(div().flex_1())
         .when(this.view === "folders" && this.files.length > 0, (e) => {
-          const dirs = this.groups().map(([d]) => d), all = dirs.every((d) => this.collapsed.has(d));
+          const dirs = this.dirKeys(), all = dirs.length > 0 && dirs.every((d) => this.collapsed.has(d));
+          if (!dirs.length) return e;
           return e.child(div().id("collapse-all").h(22).px(8).flex().items_center().rounded(6).text_size(11).text_color(t.muted).cursor_pointer()
             .hover((s) => s.bg(t.hover).text_color(t.foreground))
             .on_click((_e, cx) => { this.collapsed = all ? new Set() : new Set(dirs); cx.notify(); }).child(all ? "Expand all" : "Collapse all"));
         }))
       .child(v_flex().id("changes-list").flex_1().min_h(0).overflow_y_scrollbar().p(6)
-        .children(this.view === "folders" ? this.groups().flatMap(([dir, files]) => this.group(dir, files, t)) : this.files.map((f) => this.row(f, t)))
+        .children(this.view === "folders" ? this.entries(this.tree(), 0, t) : this.files.map((f) => this.row(f, t)))
         .when(!this.files.length, (e) => e.child(div().p(8).text_color(t.dim).child(this.error || (this.loading ? "Loading changes…" : this.root ? "No uncommitted changes" : "No folder")))))
       .when(this.limited, el => el.child(div().px(12).py(4).text_size(11).text_color(t.dim).child("Showing the first 1,000 changed files")))
       .when(Boolean(this.note), (e) => e.child(div().px(10).pb(8).text_size(11).text_color(t.ansi1).child(this.note)))
