@@ -1,8 +1,9 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { spaces, panes, focused, exec, run, layout, theme, notify, props, shared, setShared } from "herdr";
+import { spaces, panes, focused, exec, run, layout, theme, notify, props, shared, setShared, openOverlay } from "herdr";
 import { normalize, reviewOf, counts, shown, SCOPES, CHIPS } from "./model.js";
 import { icons, icon } from "./icons.js";
+import { Viewer } from "./viewer.js";
 
 const REFRESH = 60000;
 const FIELDS = "number,title,url,author,assignees,reviewRequests,latestReviews,reviewDecision,isDraft,labels,updatedAt,statusCheckRollup,headRefName,baseRefName,additions,deletions,changedFiles";
@@ -30,7 +31,6 @@ function location(last) {
   return { cwd: pane?.cwd || f?.cwd || space?.folder, on };
 }
 
-const openUrl = (url) => exec("sh", ["-c", 'xdg-open "$1" >/dev/null 2>&1 &', "sh", url]).catch(() => exec("open", [url]).catch(() => null));
 const remembered = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
 const keep = (key, value) => localStorage.setItem(key, JSON.stringify(value));
 
@@ -45,7 +45,9 @@ function age(iso) {
 
 export default class Prs extends View {
   init(_props, cx) {
-    if (props()?.button) {
+    const { pr, overlay, button } = props() ?? {};
+    if (pr) { this.viewer = new Viewer(pr, overlay, cx); return; }
+    if (button) {
       const panels = shared("workspace.panels") ?? ["files", "changes"];
       if (!panels.includes("prs")) setShared("workspace.panels", [...panels, "prs"]);
       this.button = true;
@@ -163,8 +165,8 @@ export default class Prs extends View {
     meta.push(div().flex_none().text_size(11).text_color(t.dim).child(p.author));
     meta.push(h_flex().gap(4).flex_none().text_size(11).child(div().text_color(t.ansi2).child(`+${p.adds}`)).child(div().text_color(t.ansi1).child(`−${p.dels}`)));
     return v_flex().id(`pr-${p.number}`).flex_none().min_w(0).px(10).py(6).gap(3).rounded(7).cursor_pointer().hover((s) => s.bg(t.hover))
-      .tooltip(`${p.head} → ${p.base} · Click: open on GitHub · Right click: copy branch name`)
-      .on_click(() => openUrl(p.url))
+      .tooltip(`${p.head} → ${p.base} · Right click: copy branch name`)
+      .on_click(() => this.open(p))
       .on_mouse_down("right", (_e, cx) => {
         cx.stop_propagation(); cx.write_to_clipboard(p.head);
         notify({ title: "Branch copied", body: p.head, level: "success", timeout: 2500 });
@@ -178,7 +180,12 @@ export default class Prs extends View {
         .child(div().flex_none().child(age(p.updatedAt))));
   }
 
+  open(p) {
+    openOverlay({ mod: "prs", kind: "dialog", width: 0.86, height: 0.9, props: { pr: { repo: this.repo, number: p.number, on: this.repoOn ?? null, title: p.title, me: this.me } } });
+  }
+
   render(cx) {
+    if (this.viewer) return this.viewer.render(cx);
     const t = theme();
     if (this.button) return this.toolbar(t);
     const shell = v_flex().id("prs").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13);
