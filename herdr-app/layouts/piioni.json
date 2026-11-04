@@ -145,6 +145,20 @@
               }
             },
             {
+              "id": "prs-button",
+              "type": "block",
+              "size": {
+                "px": 66
+              },
+              "window_drag": true,
+              "content": {
+                "mod": "prs",
+                "props": {
+                  "button": true
+                }
+              }
+            },
+            {
               "id": "panel-buttons",
               "type": "block",
               "size": {
@@ -259,6 +273,13 @@
                       "type": "block",
                       "content": {
                         "mod": "relevo-changes"
+                      }
+                    },
+                    {
+                      "id": "prs",
+                      "type": "block",
+                      "content": {
+                        "mod": "prs"
                       }
                     },
                     {
