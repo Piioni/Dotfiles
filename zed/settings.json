@@ -44,6 +44,7 @@
   // --------------------------------------------------
   // Editor
   // --------------------------------------------------
+  "format_on_save": "off",
   "relative_line_numbers": "disabled",
   "preferred_line_length": 120,
   "soft_wrap": "bounded",
@@ -55,12 +56,13 @@
   "linked_edits": true,
   "ensure_final_newline_on_save": true,
   "remove_trailing_whitespace_on_save": false,
-  "line_ending": "prefer_crlf",
+  "line_ending": "detect",
   "show_signature_help_after_edits": true,
   "auto_signature_help": true,
   "show_edit_predictions": true,
   "edit_predictions": {
-    "provider": "copilot",
+    "allow_data_collection": "no",
+    "provider": "none",
   },
   "code_lens": "on",
   "redact_private_values": false,
@@ -95,6 +97,7 @@
     "experimental.show": true,
   },
   "project_panel": {
+    "folder_indicator": "icon",
     "hide_hidden": false,
     "hide_root": true,
     "indent_guides": {
@@ -104,7 +107,6 @@
     "diagnostic_badges": false,
     "show_diagnostics": "all",
     "indent_size": 20.0,
-    "folder_icons": true,
     "file_icons": true,
     "hide_gitignore": false,
     "dock": "right",
@@ -122,9 +124,9 @@
     "dock": "right",
   },
   "git_panel": {
+    "folder_indicator": "icon",
     "show_count_badge": false,
     "diff_stats": true,
-    "folder_icons": true,
     "file_icons": true,
     "collapse_untracked_diff": false,
     "status_style": "icon",
@@ -146,6 +148,7 @@
   // AI / agent
   // --------------------------------------------------
   "agent": {
+    "sidebar_side": "right",
     "enable_feedback": false,
     "button": true,
     "dock": "right",
