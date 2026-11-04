@@ -6,6 +6,7 @@ import { agentIcon } from "./ui.js";
 
 const { ACCOUNTS: CONFIGURED, CODEX: CODEX_ACCOUNT } = CONFIG;
 export const API_QUOTAS = "relevo.quota.api";
+export const API_QUOTAS_AT = "relevo.quota.api.at";
 
 // `file` is the statusline's quota snapshot for that account.
 /** @param {Record<string, any> & {key:string}} a @returns {Record<string, any> & {key:string}} */
@@ -17,6 +18,11 @@ export const CODEX = withFile(CODEX_ACCOUNT);
 export const accountOf = (key) => [...ACCOUNTS, CODEX].find((p) => p.key === key) ?? ACCOUNTS[0];
 
 export const LAUNCHERS = configuredLaunchers(CONFIG);
+/** The launcher that starts an account's own login folder: the one that renews that login, whatever the list order. */
+/** @param {Record<string, any>} account */
+export const loginLauncher = (account) =>
+  LAUNCHERS.find((l) => l.app === "claude" && l.account === account.key && l.claudeDir === account.claudeDir) ?? launcherOf(account.key);
+
 /** @param {string} key */
 export const launcherOf = (key) => resolveLauncher(key, LAUNCHERS, [...ACCOUNTS, CODEX]);
 
@@ -75,33 +81,32 @@ export async function loadClaudeQuotas() {
 /** @param {Record<string, any> | null | undefined} q */
 const full = (q) => (q?.h5?.pct >= 100 ? "5h" : q?.d7?.pct >= 100 ? "7d" : null);
 
-// A launcher opens as configured unless its Claude account is at 100%: then the first Claude launcher of another
-// account that has room opens instead (the folder and settings of one Claude profile can't be shared across accounts).
-// Pi and Codex never fall back. Every launch path goes through here.
-/** @param {Record<string, any>} launcher @param {Record<string, any>} quotas @param {boolean} [announce] tell the user about a fallback */
-export function launchChoice(launcher, quotas, announce = false) {
+// What to offer when a launcher's Claude account is at 100%: a launcher of another account that has room, the one of
+// the same profile (same folder and settings) if there is one, else its default launcher. Nothing switches by itself: the caller asks.
+// Pi and Codex never get an offer, and neither does a launcher while every account is full.
+/** @param {Record<string, any>} launcher @param {Record<string, any>} quotas
+ * @returns {{launcher: Record<string, any>, note: string | null}} the launcher to offer, and why (null: just open the requested one) */
+export function launchChoice(launcher, quotas) {
   const own = launcher.account, window = launcher.app === "claude" ? full(quotas?.[own]) : null;
-  /** @type {{launcher: Record<string, any>, note: string | null}} */
-  let choice = { launcher, note: null };
   if (window) {
     for (const a of ACCOUNTS) {
-      const other = a.key !== own && !full(quotas?.[a.key]) && LAUNCHERS.find((l) => l.app === "claude" && l.account === a.key);
-      if (other) {
-        choice = { launcher: other, note: `${accountOf(own).label} is at 100% (${window}) — using ${a.label}` };
-        break;
-      }
+      const options = a.key !== own && !full(quotas?.[a.key]) ? LAUNCHERS.filter((l) => l.app === "claude" && l.account === a.key) : [];
+      const other = options.find((l) => l.profile === launcher.profile) ?? options.find((l) => l.default) ?? options[0];
+      if (other) return { launcher: other, note: `${accountOf(own).label} is at 100% (${window})` };
     }
   }
-  if (announce && choice.note) notify({ title: choice.note, level: "info" });
-  return choice;
+  return { launcher, note: null };
 }
 
-// Pull request actions use the first Claude account that has a launcher, with the usage fallback.
+// Pull request actions use the first Claude account that has a launcher, even when it is full: the session says so
+// and can be moved to another account from its row, instead of silently running on an account nobody picked.
 /** @param {Record<string, any>} quotas @param {boolean} [announce] */
 export function pickAccount(quotas, announce = false) {
   const first = ACCOUNTS.find((a) => LAUNCHERS.some((l) => l.app === "claude" && l.account === a.key)) ?? ACCOUNTS[0];
-  const { launcher, note } = launchChoice(launcherOf(first.key), quotas, announce);
-  return { key: launcher.account ?? first.key, note };
+  const full = launchChoice(launcherOf(first.key), quotas).note;
+  const note = full && `${full}; the session opens on it anyway`;
+  if (announce && note) notify({ title: note, body: "Move it to another account from its row in the agents list.", level: "info" });
+  return { key: first.key, note };
 }
 
 // Runs in the repo's own space (or a new one), not in whichever space is shown.
@@ -125,7 +130,7 @@ export const SHARED_SETUP = "relevo.setup";
 /** @param {Array<Record<string, any>>} accounts @param {Array<Record<string, any>>} launchers */
 export function publishSetup(accounts, launchers = []) {
   const setup = {
-    accounts: Object.fromEntries(accounts.map((a) => [a.key, { letter: a.letter, bg: a.bg, fg: a.fg, label: a.label }])),
+    accounts: Object.fromEntries(accounts.map((a) => [a.key, { bg: a.bg, fg: a.fg, label: a.label }])),
     launchers: launchers.map(({ key, label, app, profile }) => ({ key, label, app, profile })),
   };
   if (JSON.stringify(shared(SHARED_SETUP)) !== JSON.stringify(setup)) setShared(SHARED_SETUP, setup);

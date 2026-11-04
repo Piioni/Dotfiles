@@ -17,6 +17,24 @@ async function open() {
   return { mod, cx, nativeCx, view: () => mod.render(nativeCx) };
 }
 
+test("a reload right after a collection doesn't ask the usage endpoints again; an old one does", async () => {
+  fake.stored["relevo.quota.api.at"] = Date.now() - 60 * 1000;
+  await open();
+  assert.equal(fake.stored["relevo.quota.api"], undefined);
+  fake.stored["relevo.quota.api.at"] = Date.now() - 6 * 60 * 1000;
+  await open();
+  assert.ok(fake.stored["relevo.quota.api"], "a stale one collects");
+  assert.ok(Date.now() - fake.stored["relevo.quota.api.at"] < 60 * 1000, "and records when");
+});
+
+test("an expired login says so instead of showing empty bars, and only on its own account", async () => {
+  fake.stored["relevo.quota.api.at"] = Date.now();
+  fake.stored["relevo.quota.api"] = { personal: { error: "token expired" }, work: { error: "HTTP 429" } };
+  const { view } = await open();
+  assert.match(text(find(view(), "account-personal")), /login expired/);
+  assert.doesNotMatch(text(find(view(), "account-work")), /login expired/);
+});
+
 test("accounts keeps quotas and Settings without launchers or the context selector", async () => {
   const { view, cx } = await open();
   const ui = view();

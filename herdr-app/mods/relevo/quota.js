@@ -3,6 +3,8 @@ import { ACCOUNTS } from "./config.js";
 
 // Asks each provider's usage endpoint with that account's own login. Expired tokens are
 // skipped, never refreshed: refreshing would rotate the login Claude Code or Codex keep.
+/** What the usage read says when the saved login ran out: Claude Code renews it the next time that profile starts. */
+export const LOGIN_EXPIRED = "token expired";
 const CLAUDE_DIRS = Object.fromEntries(ACCOUNTS.map((a) => [a.key, a.claudeDir]));
 
 /** @typedef {{ utilization?: number|null, resets_at?: string|number|null }} ProviderWindow */
@@ -35,7 +37,7 @@ async function claudeToken(dir) {
   try { oauth = JSON.parse(await readTextFile(path) ?? "{}").claudeAiOauth ?? {}; }
   catch { throw new Error("invalid Claude credentials"); }
   if (!oauth.accessToken) throw new Error("no Claude credentials");
-  if (oauth.expiresAt && oauth.expiresAt < Date.now()) throw new Error("token expired");
+  if (oauth.expiresAt && oauth.expiresAt < Date.now()) throw new Error(LOGIN_EXPIRED);
   return oauth.accessToken;
 }
 

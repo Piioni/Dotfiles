@@ -8,6 +8,7 @@ import { AccountMenu } from "./account-menu.js";
 import { PanelBar, FileFinder, CheckoutMenu, openFinder, openCheckoutsHere } from "./panelbar.js";
 import { nextWaiting, openPR, respondPR, worktrees } from "./commands.js";
 import { Handoff, openHandoff, handoffFrom, closeHandedOff } from "./handoff.js";
+import { Fallback } from "./fallback.js";
 import { ReviewDiff, openReview } from "./review.js";
 import { loadKeys } from "./ui.js";
 import { LedgerWeek, openWeek } from "./week.js";
@@ -18,7 +19,7 @@ import { focusInbox } from "./inbox-keys.js";
 const ROLES = {
   accounts: Sidebar, inbox: Inbox, "inbox-button": InboxButton, "account-menu": AccountMenu,
   "panel-bar": PanelBar, "panel-toggle": PanelToggle, "find-file": FileFinder, "checkout-menu": CheckoutMenu,
-  handoff: Handoff, "review-diff": ReviewDiff, "ledger-week": LedgerWeek, settings: Settings,
+  handoff: Handoff, fallback: Fallback, "review-diff": ReviewDiff, "ledger-week": LedgerWeek, settings: Settings,
 };
 
 export default class Relevo extends View {

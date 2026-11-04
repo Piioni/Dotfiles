@@ -1,8 +1,8 @@
 import { div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { theme, run, focused, panes, setShared } from "herdr";
+import { theme, run, focused, panes, shared, setShared, openOverlay } from "herdr";
 import { BackgroundWatch, quotaAlerts } from "./alerts.js";
-import { ACCOUNTS, CODEX, LAUNCHERS, API_QUOTAS, launchArgv, launcherOf, launchChoice, chip, loadClaudeQuotas, publishSetup } from "./accounts.js";
+import { ACCOUNTS, CODEX, LAUNCHERS, API_QUOTAS, API_QUOTAS_AT, launchArgv, launcherOf, loginLauncher, launchChoice, chip, loadClaudeQuotas, publishSetup } from "./accounts.js";
 import { ago, resetText, resetClock, runsOut, clock, FIVE_HOURS, WEEK } from "./lib/time.js";
 
 /** @typedef {Record<string, `#${string}`>} ThemeColors */
@@ -16,12 +16,13 @@ const meterTip = (w, label) => {
   const out = runsOut(w, LENGTH[label]);
   return out ? `${resetText(w)} · at this pace 100% at ${clock(out)}` : resetText(w);
 };
-import { collectQuotas } from "./quota.js";
+import { collectQuotas, LOGIN_EXPIRED } from "./quota.js";
 import { ledgerTick } from "./ledger.js";
 import { spinner, withKey } from "./ui.js";
 import { openSettings } from "./settings.js";
 
 const STALE = 30 * 60;
+const QUOTA_EVERY = 5 * 60 * 1000;
 
 export class Sidebar {
   /** @param {unknown} _props @param {Context} cx */
@@ -32,9 +33,10 @@ export class Sidebar {
     this.width = 268;
     // The snapshots on disk answer at once; the usage endpoints follow.
     this.load(cx);
-    this.collect(cx);
+    // Every saved file reloads the mod, and a burst of reloads makes the endpoints answer 429.
+    if (Date.now() - Number(shared(API_QUOTAS_AT) ?? 0) >= QUOTA_EVERY) this.collect(cx);
     cx.timer.every(30000, (cx) => this.load(cx));
-    cx.timer.every(300000, (cx) => this.collect(cx));
+    cx.timer.every(QUOTA_EVERY, (cx) => this.collect(cx));
     this.watch = new BackgroundWatch();
     cx.timer.every(3000, (cx) => {
       this.watch.tick();
@@ -47,6 +49,7 @@ export class Sidebar {
   // The usage endpoints; the statusline also writes a snapshot while a session runs.
   /** @param {AsyncContext} cx */
   collect(cx) {
+    setShared(API_QUOTAS_AT, Date.now());
     cx.spawn(async (cx) => {
       try {
         setShared(API_QUOTAS, await collectQuotas());
@@ -86,8 +89,11 @@ export class Sidebar {
   launch(key) {
     const f = focused();
     const pane = f?.pane ? panes().find((p) => p.pane === f.pane) : null;
-    const argv = launchArgv(launchChoice(typeof key === "string" ? launcherOf(key) : key, this.quota, true).launcher);
-    run("tab.new", { folder: pane?.cwd ?? f?.cwd ?? undefined, argv });
+    const folder = pane?.cwd ?? f?.cwd ?? undefined, requested = typeof key === "string" ? launcherOf(key) : key;
+    const { launcher, note } = launchChoice(requested, this.quota);
+    if (launcher === requested) return run("tab.new", { folder, argv: launchArgv(requested) });
+    // A full account: ask, never switch on its own.
+    openOverlay({ mod: "relevo", kind: "dialog", width: 420, height: 150, props: { role: "fallback", note, folder, requested: requested.key, alternative: launcher.key } });
   }
 
   /** @param {ThemeColors} t @param {string} id @param {"5h" | "7d"} label @param {Data | null | undefined} w @param {number} barWidth @param {boolean} stale @param {boolean} hovered */
@@ -103,10 +109,18 @@ export class Sidebar {
             .w(Math.max(2, barWidth * Math.min(w.pct, 100) / 100)))));
   }
 
+  /** @param {Data} p */
+  expired(p) {
+    return /** @type {Record<string, any>} */ (shared(API_QUOTAS) ?? {})[p.key]?.error === LOGIN_EXPIRED;
+  }
+
   /** @param {ThemeColors} t @param {Data} p @param {Data | null} q @param {number} barWidth */
   row(t, p, q, barWidth) {
     const age = q ? Date.now() / 1000 - q.updated : Infinity, stale = age > STALE;
-    const note = !q
+    const expired = this.expired(p);
+    const note = expired
+      ? `Login expired. Start ${loginLauncher(p).label} to renew it`
+      : !q
       ? "No data yet"
       : stale ? `Last updated ${ago(q.updated)}; the usage endpoint did not answer since` : `Updated ${ago(q.updated)}`;
     const hovered = this.hovered === p.key;
@@ -122,8 +136,9 @@ export class Sidebar {
         .child(this.mark(t, p))
         .child(div().flex_1().min_w(0).truncate().text_size(12).font_medium().text_color(stale ? t.muted : t.foreground)
           .child(p.label)))
-      .when(!this.loaded && !q, (el) => el.child(h_flex().flex_1().justify_center().child(spinner(t.dim, 10))))
-      .when(this.loaded || Boolean(q), (el) => el
+      .when(!this.loaded && !q && !expired, (el) => el.child(h_flex().flex_1().justify_center().child(spinner(t.dim, 10))))
+      .when(expired && !q, (el) => el.child(div().flex_1().min_w(0).truncate().text_size(11).text_color(t.blocked).child("login expired")))
+      .when((this.loaded || Boolean(q)) && !(expired && !q), (el) => el
         .child(this.meter(t, `meter-5h-${p.key}`, "5h", q?.h5, barWidth, stale, hovered))
         .child(this.meter(t, `meter-7d-${p.key}`, "7d", q?.d7, barWidth, stale, hovered)));
   }
@@ -137,7 +152,7 @@ export class Sidebar {
       const stale = !q || Date.now() / 1000 - q.updated > STALE;
       const level = !w || stale ? t.dim : w.pct >= 80 ? t.blocked : w.pct >= 50 ? t.ansi3 : t.accent;
       const usage = [q?.h5 ? `5h ${q.h5.pct}%` : null, q?.d7 ? `7d ${q.d7.pct}%` : null]
-        .filter(Boolean).join(" · ") || "no data";
+        .filter(Boolean).join(" · ") || (this.expired(p) ? `login expired, start ${loginLauncher(p).label} to renew it` : "no data");
       return v_flex().id(`account-${p.key}`).w_full().py(3).gap(3).items_center().rounded(6)
         .cursor_pointer().hover((s) => s.bg(t.hover))
         .tooltip(`${p.label} · ${usage}. Click to refresh usage.`)

@@ -10,9 +10,9 @@ export function configuredLaunchers(config) {
 
 /** @param {string} key @param {Array<Record<string, any>>} launchers @param {Array<Record<string, any>>} accounts */
 export function resolveLauncher(key, launchers, accounts) {
-  // An account key means its launcher: the first one that names it as its account.
-  const launcher = (accounts.some((a) => a.key === key) && launchers.find((l) => l.account === key))
-    || launchers.find((l) => l.key === key);
+  // An account key means its default launcher: the one marked `default`, else the first that names it as its account.
+  const named = accounts.some((a) => a.key === key) ? launchers.filter((l) => l.account === key) : [];
+  const launcher = named.find((l) => l.default) ?? named[0] ?? launchers.find((l) => l.key === key);
   if (!launcher) throw new Error(`Unknown launcher: ${key}`);
   return launcher;
 }
