@@ -4,7 +4,7 @@ const WIDTH = 130;
 const SKILL_KEYS = ["review", "fix", "comments"];
 /** @param {string | undefined} path */
 const safeFolder = (path) => typeof path === "string" && !!path.trim() && !/^[\\/~]/.test(path) && !/[\\\0\r\n]/.test(path) && !path.split("/").includes("..");
-const ACCOUNT_FIELDS = ["key", "label", "letter", "launcher", "bg", "fg"];
+const ACCOUNT_FIELDS = ["key", "label", "launcher", "bg", "fg"];
 
 // sh -c WRITE_SCRIPT sh <path> <text>: a hidden temp file in the same folder, then one rename,
 // so the mod never reloads a half-written config.
@@ -96,7 +96,6 @@ export function validate(c) {
     if (a.key && !/^[A-Za-z0-9_-]+$/.test(a.key)) fail(`accounts.${i}.key`, `${name}: the key takes letters, digits and dashes`);
     else if (a.key && (seen.has(a.key) || a.key === c.CODEX?.key)) fail(`accounts.${i}.key`, `${name}: key "${a.key}" is taken`);
     seen.add(a.key);
-    if (a.letter && [...a.letter].length > 2) fail(`accounts.${i}.letter`, `${name}: the letter is one or two characters`);
     for (const field of ["bg", "fg"]) {
       if (a[field] && !isHex(a[field])) fail(`accounts.${i}.${field}`, `${name}: ${field} is a hex color like #1e2030`);
     }
@@ -111,7 +110,7 @@ export function validate(c) {
   if (modern) {
     const launchers = /** @type {Array<Record<string, any>>} */ (c.LAUNCHERS);
     if (!launchers.length) fail("launchers", "Add at least one launcher");
-    const ids = new Set();
+    const ids = new Set(), defaults = new Set();
     launchers.forEach((l, i) => {
       const at = `launchers.${i}`, name = l.label || `Launcher ${i + 1}`;
       if (!/^[A-Za-z0-9_-]+$/.test(l.key ?? "") || ids.has(l.key)) fail(`${at}.key`, `${name}: use a unique stable key`);
@@ -122,6 +121,10 @@ export function validate(c) {
       if (l.app === "pi" && l.account) fail(`${at}.account`, `${name}: Pi selects its provider with its model`);
       if (l.account && ![...seen, c.CODEX?.key].includes(l.account)) fail(`${at}.account`, `${name}: select an existing account`);
       if (l.app === "claude" && l.account === c.CODEX?.key) fail(`${at}.account`, `${name}: select a Claude account`);
+      if (l.default && l.account) {
+        if (defaults.has(l.account)) fail(`${at}.default`, `${name}: only one default launcher per account`);
+        defaults.add(l.account);
+      }
       if (l.app === "codex" && l.account && l.account !== c.CODEX?.key) fail(`${at}.account`, `${name}: select the Codex account`);
     });
   }

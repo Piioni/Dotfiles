@@ -51,14 +51,14 @@ export class Settings {
   /** @param {Row | null} [orig] @returns {Row} */
   launcherRow(orig = null) {
     const inputs = Object.fromEntries(["label", "profile", "command", "claudeDir"].map((k) => [k, this.input(orig?.[k], k)]));
-    return { id: ++this.seq, orig, inputs, app: orig?.app ?? "claude", account: null };
+    return { id: ++this.seq, orig, inputs, app: orig?.app ?? "claude", account: null, isDefault: Boolean(orig?.default) };
   }
 
   /** @param {Row | null} [orig] @returns {Row} */
   accountRow(orig = null) {
     // Colors are no longer edited here, but the agents list badge still needs valid ones.
     const fallback = /** @type {Record<string, string>} */ ({ bg: "#c3e88d", fg: "#1e2030" });
-    const inputs = Object.fromEntries(["label", "letter", "claudeDir", "bg", "fg"].map((k) => [k, this.input(orig?.[k] ?? fallback[k], k)]));
+    const inputs = Object.fromEntries(["label", "claudeDir", "bg", "fg"].map((k) => [k, this.input(orig?.[k] ?? fallback[k], k)]));
     return { id: ++this.seq, orig, inputs };
   }
 
@@ -72,6 +72,7 @@ export class Settings {
       const value = { ...row.orig, key: this.keyOf(row),
         ...Object.fromEntries(Object.entries(/** @type {Record<string, InputState>} */ (row.inputs)).map(([k, s]) => [k, text(s)])) };
       delete value.defaultLauncher;
+      delete value.letter;
       return value;
     };
     const codex = account(this.codex);
@@ -87,6 +88,8 @@ export class Settings {
         if (l.app !== "claude") delete value.claudeDir;
         if (l.app === "pi" || !l.account) delete value.account;
         else value.account = this.keyOf(l.account);
+        if (l.isDefault && value.account) value.default = true;
+        else delete value.default;
         return value;
       }),
       REPOS_ROOT: text(this.reposRoot),
@@ -109,6 +112,21 @@ export class Settings {
   addLauncher(cx) { const row = this.launcherRow(); this.launchers.push(row); this.select("launchers", row); this.changed(cx); }
   /** @param {Row} row @param {AsyncContext} cx */
   removeLauncher(row, cx) { this.launchers = this.launchers.filter((l) => l !== row); this.drop(row); this.changed(cx); }
+  // The default launcher of an account is the one it opens on its own (PR actions, a handoff with no session); one per account.
+  /** @param {Row} row @param {boolean} on @param {AsyncContext} cx */
+  setDefault(row, on, cx) {
+    if (on) for (const l of this.launchers) if (l.account === row.account) l.isDefault = false;
+    row.isDefault = on;
+    this.changed(cx);
+  }
+  // The order is the Agents + menu's.
+  /** @param {Row} row @param {-1 | 1} by @param {AsyncContext} cx */
+  moveLauncher(row, by, cx) {
+    const i = this.launchers.indexOf(row), j = i + by;
+    if (i < 0 || j < 0 || j >= this.launchers.length) return;
+    [this.launchers[i], this.launchers[j]] = [this.launchers[j], this.launchers[i]];
+    this.changed(cx);
+  }
 
   /** @param {AsyncContext} cx */
   save(cx) {
@@ -178,12 +196,13 @@ export class Settings {
     return v_flex().gap(8).child(div().text_size(10.5).font_semibold().text_color(t.dim).child(label.toUpperCase())).children(children);
   }
 
-  /** @param {Colors} t @param {string} title @param {string} sub @param {((cx:Context) => void) | null} remove */
-  head(t, title, sub, remove) {
+  /** @param {Colors} t @param {string} title @param {string} sub @param {((cx:Context) => void) | null} remove @param {Element[]} [extra] */
+  head(t, title, sub, remove, extra = []) {
     return h_flex().items_center().justify_between().gap(10)
       .child(v_flex().min_w(0).gap(2).child(div().font_semibold().text_size(15).truncate().child(title))
         .child(div().text_size(11).text_color(t.dim).child(sub)))
-      .when(Boolean(remove), (el) => el.child(button(t, "settings-remove", "Remove", (/** @type {Context} */ cx) => remove?.(cx), { kind: "danger", size: "md" })));
+      .child(h_flex().gap(6).flex_none().children(extra)
+        .when(Boolean(remove), (el) => el.child(button(t, "settings-remove", "Remove", (/** @type {Context} */ cx) => remove?.(cx), { kind: "danger", size: "md" }))));
   }
 
   /** @param {Colors} t @param {Array<{message:string}>} errs */
@@ -198,7 +217,10 @@ export class Settings {
     const errs = this.issues("launchers", l);
     const adv = this.open.has(l.id) || errs.some((e) => /\.(command|claudeDir)$/.test(e.at));
     return v_flex().gap(18)
-      .child(this.head(t, text(l.inputs.label) || "New launcher", `${this.keyOf(l) || "unsaved"} · starts ${l.app === "claude" ? "Claude Code" : l.app === "pi" ? "Pi" : "Codex CLI"} in a new tab`, (cx) => this.removeLauncher(l, cx)))
+      .child(this.head(t, text(l.inputs.label) || "New launcher", `${this.keyOf(l) || "unsaved"} · starts ${l.app === "claude" ? "Claude Code" : l.app === "pi" ? "Pi" : "Codex CLI"} in a new tab`, (cx) => this.removeLauncher(l, cx), [
+        button(t, "launcher-up", "↑", (/** @type {Context} */ cx) => this.moveLauncher(l, -1, cx), { tip: "Move up", disabled: this.launchers.indexOf(l) <= 0 }),
+        button(t, "launcher-down", "↓", (/** @type {Context} */ cx) => this.moveLauncher(l, 1, cx), { tip: "Move down", disabled: this.launchers.indexOf(l) >= this.launchers.length - 1 }),
+      ]))
       .when(errs.length > 0, (el) => el.child(this.problems(t, errs)))
       .child(this.group(t, "Launcher", [
         h_flex().gap(10).child(this.field(t, `launcher-label-${l.id}`, "Name", l.inputs.label))
@@ -210,8 +232,12 @@ export class Settings {
       .child(this.group(t, "Account", l.app === "pi"
         ? [div().text_size(11.5).text_color(t.muted).child("Pi picks its provider with the model selected inside it, so no account is attached.")]
         : [this.choices(t, `launcher-account-${l.id}`, [{ value: null, label: "Unassigned" }, ...available.map((a) => ({ value: a, label: text(a.inputs.label) || "New account" }))], l.account,
-          (a) => { l.account = a; }),
-          ...(l.app === "claude" ? [div().text_size(11).text_color(t.dim).child("Default account. At 100% usage, the first launcher of another Claude account opens instead.")] : [])]))
+          (a) => { l.account = a; l.isDefault = false; }),
+          ...(l.account ? [
+            this.choices(t, `launcher-default-${l.id}`, [{ value: true, label: `Default launcher for ${text(l.account.inputs.label) || "this account"}` }, { value: false, label: "Not the default" }], l.isDefault,
+              (v, cx) => this.setDefault(l, v, cx)),
+            div().text_size(11).text_color(t.dim).child("The default launcher is what an account opens on its own: pull request actions and a handoff with no session to resume. At 100% usage you are asked before another account is used. The list order is the + menu's."),
+          ] : [])]))
       .child(this.group(t, "Command", [
         h_flex().child(button(t, `launcher-adv-${l.id}`, adv ? "Hide command and folders" : "Show command and folders",
           (/** @type {Context} */ cx) => { if (this.open.has(l.id)) this.open.delete(l.id); else this.open.add(l.id); cx.notify(); }, { size: "sm" })),
@@ -227,11 +253,10 @@ export class Settings {
     const i = this.accounts.indexOf(a), errs = this.issues("accounts", a);
     const login = loginArgv(codex ? "codex" : "claude", text(a.inputs.claudeDir));
     return v_flex().gap(18)
-      .child(this.head(t, text(a.inputs.label) || "New account", `${codex ? "Codex" : "Claude"} account · usage and badge`, !codex && this.accounts.length > 1 ? (cx) => this.removeAccount(a, cx) : null))
+      .child(this.head(t, text(a.inputs.label) || "New account", `${codex ? "Codex" : "Claude"} account · usage`, !codex && this.accounts.length > 1 ? (cx) => this.removeAccount(a, cx) : null))
       .when(errs.length > 0, (el) => el.child(this.problems(t, errs)))
       .child(this.group(t, "Identity", [
-        h_flex().gap(10).child(this.field(t, `account-label-${i}`, "Name", a.inputs.label))
-          .child(this.field(t, `account-letter-${i}`, "Badge letter", a.inputs.letter)),
+        this.field(t, `account-label-${i}`, "Name", a.inputs.label),
       ]))
       .when(!codex, (el) => el.child(this.group(t, "Usage", [
         this.field(t, `account-dir-${i}`, "Credentials folder", a.inputs.claudeDir, "Relative to your home folder. Relevo reads usage from here and stores no credentials."),

@@ -54,7 +54,7 @@ const broken = (edit) => {
 
 test("validate: catches each rule", () => {
   assert.ok(broken((c) => { c.ACCOUNTS = []; }).includes("accounts"));
-  for (const field of ["key", "label", "letter", "launcher", "claudeDir", "bg", "fg"]) {
+  for (const field of ["key", "label", "launcher", "claudeDir", "bg", "fg"]) {
     assert.ok(broken((c) => { c.ACCOUNTS[1][field] = ""; }).includes(`accounts.1.${field}`), field);
   }
   assert.ok(broken((c) => { c.ACCOUNTS[1].key = "personal"; }).includes("accounts.1.key"));
@@ -62,7 +62,7 @@ test("validate: catches each rule", () => {
   assert.ok(broken((c) => { c.ACCOUNTS[1].key = "a/b"; }).includes("accounts.1.key"));
   assert.ok(broken((c) => { c.ACCOUNTS[0].bg = "green"; }).includes("accounts.0.bg"));
   assert.ok(broken((c) => { c.ACCOUNTS[0].fg = "#12345"; }).includes("accounts.0.fg"));
-  assert.ok(broken((c) => { c.ACCOUNTS[0].letter = "ABC"; }).includes("accounts.0.letter"));
+  assert.deepEqual(broken((c) => { c.ACCOUNTS[0].letter = "ABC"; }), [], "an old badge letter is ignored");
   assert.ok(broken((c) => { c.CODEX.launcher = " "; }).includes("codex.launcher"));
   assert.ok(broken((c) => { c.REPOS_ROOT = ""; }).includes("reposRoot"));
   assert.ok(broken((c) => { c.REPOS_ROOT = "/home/me/code"; }).includes("reposRoot"));
@@ -214,6 +214,70 @@ test("Settings selects a newly added item and falls back when the selection is r
   settings.close();
 });
 
+test("saving drops an old badge letter, and Settings no longer edits one", async () => {
+  resetFake();
+  const { Settings } = await import("../settings.js");
+  const settings = new Settings(), cx = /** @type {import("gpui-kit").Context} */ (/** @type {unknown} */ (fakeCx()));
+  settings.init({}, cx);
+  assert.equal(settings.accounts[0].inputs.letter, undefined);
+  assert.ok(settings.collect().ACCOUNTS.every((/** @type {Record<string, any>} */ a) => !("letter" in a)));
+  assert.equal("letter" in settings.collect().CODEX, false);
+  settings.close();
+});
+
+test("a launcher can be the default of its account, one per account, and the saved config says which", async () => {
+  resetFake();
+  const { Settings } = await import("../settings.js");
+  const settings = new Settings(), cx = /** @type {import("gpui-kit").Context} */ (/** @type {unknown} */ (fakeCx()));
+  settings.init({}, cx);
+  const [personal, , sipos] = settings.launchers;
+  assert.equal(personal.account, sipos.account, "two launchers share an account");
+  const defaults = () => settings.collect().LAUNCHERS.filter((/** @type {Record<string, any>} */ l) => l.default).map((/** @type {Record<string, any>} */ l) => l.key);
+  assert.deepEqual(defaults(), []);
+  settings.setDefault(personal, true, cx);
+  settings.setDefault(sipos, true, cx);
+  assert.deepEqual(defaults(), ["claude-sipos"], "marking one clears the other of that account");
+  assert.deepEqual(validate(settings.collect()).filter((e) => e.at.endsWith(".default")), []);
+  settings.setDefault(sipos, false, cx);
+  assert.deepEqual(defaults(), []);
+  personal.isDefault = sipos.isDefault = true;
+  assert.ok(validate(settings.collect()).some((e) => /^launchers\.\d+\.default$/.test(e.at)), "two defaults for one account are refused");
+  settings.close();
+});
+
+test("the launcher editor offers the default toggle only when the launcher has an account", async () => {
+  resetFake();
+  const { Settings } = await import("../settings.js");
+  const settings = new Settings(), cx = /** @type {import("gpui-kit").Context} */ (/** @type {unknown} */ (fakeCx()));
+  settings.init({}, cx);
+  const pi = settings.launchers.find((l) => l.app === "pi"), claude = settings.launchers[0];
+  settings.select("launchers", pi);
+  assert.equal(find(settings.render(cx), `launcher-default-${pi.id}-0`), null);
+  settings.select("launchers", claude);
+  find(settings.render(cx), `launcher-default-${claude.id}-0`).handlers.on_click({}, cx);
+  assert.equal(claude.isDefault, true);
+  settings.close();
+});
+
+test("a launcher moves up and down the list, stops at the ends, and the saved config keeps the order", async () => {
+  resetFake();
+  const { Settings } = await import("../settings.js");
+  const settings = new Settings(), cx = /** @type {import("gpui-kit").Context} */ (/** @type {unknown} */ (fakeCx()));
+  settings.init({}, cx);
+  const keys = () => settings.collect().LAUNCHERS.map((/** @type {Record<string, any>} */ l) => l.key);
+  const before = keys(), row = settings.launchers[2];
+  settings.select("launchers", row);
+  settings.moveLauncher(row, -1, cx);
+  assert.deepEqual(keys(), [before[0], before[2], before[1], ...before.slice(3)]);
+  assert.equal(settings.current(), row, "the moved launcher stays selected");
+  settings.moveLauncher(row, 1, cx);
+  assert.deepEqual(keys(), before);
+  settings.moveLauncher(settings.launchers[0], -1, cx);
+  settings.moveLauncher(settings.launchers.at(-1), 1, cx);
+  assert.deepEqual(keys(), before, "the ends don't wrap");
+  settings.close();
+});
+
 test("a new account is valid without editing colors", async () => {
   resetFake();
   const { Settings } = await import("../settings.js");
@@ -222,7 +286,6 @@ test("a new account is valid without editing colors", async () => {
   settings.addAccount(cx);
   const row = settings.accounts.at(-1);
   row.inputs.label.set_value("Work");
-  row.inputs.letter.set_value("W");
   row.inputs.claudeDir.set_value(".claude-work");
   const errors = validate(settings.collect()).filter((e) => e.at.startsWith(`accounts.${settings.accounts.length - 1}.`));
   assert.deepEqual(errors.filter((e) => /\.(bg|fg)$/.test(e.at)), []);
@@ -244,7 +307,7 @@ test("Settings reports write failure and allows retry without losing edits", asy
   settings.close();
 });
 
-test("Settings has no Contexts section, fallback order or default-launcher chips", async () => {
+test("Settings has no Contexts section, fallback order or per-account default chips", async () => {
   resetFake();
   const { Settings } = await import("../settings.js");
   const settings = new Settings(), cx = /** @type {import("gpui-kit").Context} */ (/** @type {unknown} */ (fakeCx()));
@@ -255,7 +318,7 @@ test("Settings has no Contexts section, fallback order or default-launcher chips
     assert.equal(find(ui, "settings-add-context"), null, tab);
     assert.equal(find(ui, "settings-fallback"), null, tab);
     assert.equal(find(ui, "account-default-0"), null, tab);
-    assert.doesNotMatch(text(ui), /context|fallback order|default launcher/i, tab);
+    assert.doesNotMatch(text(ui), /context|fallback order/i, tab);
   }
   assert.ok(find(settings.render(cx), "settings-repos-root"));
   settings.close();

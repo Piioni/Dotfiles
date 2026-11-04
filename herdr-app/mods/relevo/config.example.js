@@ -1,8 +1,8 @@
 // Accounts represent provider identities/quotas; launchers represent app profiles.
 export const ACCOUNTS = [
-  { key: "personal", label: "Claude", letter: "C", claudeDir: ".claude", bg: "#c3e88d", fg: "#1e2030" },
+  { key: "personal", label: "Claude", claudeDir: ".claude", bg: "#c3e88d", fg: "#1e2030" },
 ];
-export const CODEX = { key: "codex", label: "Codex", letter: "X", bg: "#4fd6be", fg: "#1e2030" };
+export const CODEX = { key: "codex", label: "Codex", bg: "#4fd6be", fg: "#1e2030" };
 
 // A launcher's `account` is its default account; when that account is at 100% usage, the first Claude launcher of
 // another account opens instead. Pi picks its provider with its model, so it has no account.
