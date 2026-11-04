@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalize, group, matches, counts, age, prepare, groupMetas, moveKey, DEFAULT_VIEW } from "../model.js";
+import { normalize, group, matches, age, prepare, groupMetas, moveKey, DEFAULT_VIEW } from "../model.js";
 
 const raw = (id, over = {}) => ({
   identifier: id, title: `Task ${id}`, url: `https://linear.app/x/issue/${id}`, branchName: id.toLowerCase(), priority: 2,
@@ -42,16 +42,10 @@ test("a filter that hides the parent promotes the sub-issue to a row of its own"
   assert.deepEqual(g.rows.map((r) => r.task.id), ["P-2"]);
 });
 
-test("query matches id, title, project and label; chips match the status type", () => {
+test("query matches id, title, project and label", () => {
   const t = task("POS-7", { title: "Ticket lateral", project: { name: "POS V4", color: "#00f" }, labels: { nodes: [{ name: "bug", color: "#f00" }] } });
-  for (const q of ["pos-7", "lateral", "pos v4", "bug"]) assert.ok(matches(t, q, "all"), q);
-  assert.ok(!matches(t, "nope", "all"));
-  assert.ok(matches(t, "", "working") && !matches(t, "", "todo"));
-});
-
-test("counts per chip", () => {
-  const all = [task("A-1"), task("A-2", { state: { name: "Todo", type: "unstarted", color: "#ccc", position: 1 } })];
-  assert.deepEqual(counts(all), { all: 2, working: 1, todo: 1, backlog: 0, done: 0 });
+  for (const q of ["pos-7", "lateral", "pos v4", "bug"]) assert.ok(matches(t, q), q);
+  assert.ok(!matches(t, "nope"));
 });
 
 test("age uses the largest unit", () => {
@@ -61,11 +55,10 @@ test("age uses the largest unit", () => {
   assert.equal(age("2026-10-07T00:00:00Z", now), "4w");
 });
 
-test("an unknown or duplicate status type sorts after the working ones and counts as done", () => {
+test("an unknown or duplicate status type sorts after the working ones", () => {
   const dup = { name: "Duplicate", type: "duplicate", color: "#999", position: 5 };
   const odd = { name: "Mystery", type: "future", color: "#999", position: 1 };
   assert.deepEqual(group([task("A-1", { state: dup }), task("A-2", { state: odd }), task("A-3")]).map((g) => g.name), ["In Progress", "Duplicate", "Mystery"]);
-  assert.equal(counts([task("A-1", { state: dup })]).done, 1);
 });
 
 const view = (over) => ({ ...DEFAULT_VIEW, ...over });

@@ -4,7 +4,7 @@ import { exec, run, layout, theme, notify, props, appHome, home, shared, setShar
 import * as fs from "fs/promises";
 import { readToken, viewer, fetchTasks, SCOPE_NAMES, LinearError } from "./api.js";
 import {
-  normalize, prepare, group, groupMetas, moveKey, counts, CHIPS, GROUPINGS, ORDERS, COMPLETED, DEFAULT_VIEW, DEFAULT_ORDER, age, isFinished,
+  normalize, prepare, group, groupMetas, moveKey, GROUPINGS, ORDERS, COMPLETED, DEFAULT_VIEW, DEFAULT_ORDER, age, isFinished,
 } from "./model.js";
 import { icons, icon, statusIcon, statusName, priorityIcon } from "./icons.js";
 
@@ -56,7 +56,6 @@ export default class Linear extends View {
       return;
     }
     this.scope = SCOPE_NAMES.includes(remembered("scope")) ? remembered("scope") : "assigned";
-    this.chip = CHIPS[remembered("chip")] ? remembered("chip") : "all";
     this.collapsed = new Set(remembered("collapsed", []));
     this.more = new Set();
     this.query = "";
@@ -385,34 +384,30 @@ export default class Linear extends View {
     const entry = this.data[this.scope];
     if (!entry && this.error && ["token", "auth"].includes(this.error.kind)) return shell.child(this.connect(t));
     const view = viewOf();
-    const tasks = prepare(entry?.tasks ?? [], view), c = counts(tasks);
+    const tasks = prepare(entry?.tasks ?? [], view);
     const order = orderOf(view.grouping);
-    const groups = group(tasks, { query: this.query, chip: this.chip, view, states: this.states, order });
+    const groups = group(tasks, { query: this.query, view, states: this.states, order });
     this.publishGroups(tasks, view, order, cx);
     const empty = !entry ? (this.error?.message ?? "Loading issues…") : this.query.trim() ? "No issues match" : "Nothing here";
     return shell
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().size(14).flex_none().when(this.icons, (e) => e.child(svg(icon("task")).size(14).text_color(t.ansi2))))
         .child(div().font_semibold().child("Issues"))
-        .child(div().flex_1().min_w(0).text_size(11).text_color(this.error ? t.ansi1 : t.dim).text_right().truncate()
-          .child(this.error ? this.error.message : entry ? `Updated ${age(new Date(entry.at).toISOString())} ago` : ""))
-        .child(h_flex().id("linear-refresh").h(26).px(8).gap(5).flex_none().items_center().rounded(7).border_1().border_color(t.border).text_size(12).text_color(t.muted)
+        .child(div().id("linear-filter").flex_1().min_w(0).h(26).px(9).flex().items_center().rounded(7).border_1().border_color(this.typing ? t.accent : t.border).cursor_text()
+          .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).child(Input.new(this.input).h_full().text_size(12).text_color(t.foreground)))
+        .child(div().id("linear-refresh").size(26).flex_none().flex().items_center().justify_center().rounded(7).border_1().border_color(t.border).text_color(t.muted)
           .cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click((_e, cx) => this.refresh(cx))
+          .tooltip(entry ? `Refresh · updated ${age(new Date(entry.at).toISOString())} ago` : "Refresh")
           .child(this.loading
             ? svg("mods/workspace-chrome/spinner.svg").size(12).text_color(t.working).spin(900)
-            : div().size(12).when(this.icons, (e) => e.child(svg(icon("refresh")).size(12))))
-          .child(this.loading ? "Syncing" : "Refresh")))
+            : div().size(12).when(this.icons, (e) => e.child(svg(icon("refresh")).size(12))))))
+      .when(this.error && entry, (e) => e.child(div().flex_none().px(14).py(6).text_size(11).text_color(t.ansi1).border_b(1).border_color(t.border).truncate().child(this.error.message)))
       .child(v_flex().flex_none().p(8).gap(6).border_b(1).border_color(t.border)
         .child(h_flex().gap(6).items_center()
           .child(h_flex().flex_none().p(2).gap(2).rounded(8).border_1().border_color(t.border)
             .children(SCOPE_NAMES.map((s) => this.segment(`scope-${s}`, SCOPE_LABEL[s], this.scope === s, t, (_e, cx) => this.setScope(s, cx)))))
           .child(div().flex_1())
-          .child(this.iconButton("open-view", "sliders", "Display options", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 320, height: VIEW_HEIGHT, props: { menu: "view" } }), t)))
-        .child(div().id("linear-filter").h(28).px(9).flex().items_center().rounded(7).border_1().border_color(this.typing ? t.accent : t.border).cursor_text()
-          .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).child(Input.new(this.input).h_full().text_size(12).text_color(t.foreground)))
-        .child(h_flex().gap(4).items_center().flex_wrap()
-          .children(Object.entries(CHIPS).filter(([k]) => k === "all" || k === this.chip || c[k] > 0).map(([k, chip]) =>
-            this.segment(`chip-${k}`, k === "all" ? chip.label : `${chip.label} ${c[k]}`, this.chip === k, t, (_e, cx) => { this.chip = k; keep("chip", k); cx.notify(); })))))
+          .child(this.iconButton("open-view", "sliders", "Display options", () => openOverlay({ mod: "linear", kind: "popup", at: "pointer", width: 320, height: VIEW_HEIGHT, props: { menu: "view" } }), t))))
       .child(v_flex().id("linear-list").flex_1().min_h(0).overflow_y_scrollbar().p(6).gap(6)
         .children(groups.map((g) => this.groupView(g, view, t)))
         .when(!groups.length, (e) => e.child(div().px(16).py(28).text_size(12).text_center().text_color(this.error ? t.ansi1 : t.dim).child(empty))));

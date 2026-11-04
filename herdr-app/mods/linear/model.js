@@ -8,14 +8,6 @@ const PRIORITIES = ["No priority", "Urgent", "High", "Medium", "Low"];
 const rank = (type) => { const i = TYPE_ORDER.indexOf(type); return i < 0 ? TYPE_ORDER.length : i; };
 export const isFinished = (type) => ["completed", "canceled", "duplicate"].includes(type);
 
-export const CHIPS = {
-  all: { label: "All statuses", types: null },
-  working: { label: "Working", types: ["started"] },
-  todo: { label: "Todo", types: ["unstarted", "triage"] },
-  backlog: { label: "Backlog", types: ["backlog"] },
-  done: { label: "Done", types: ["completed", "canceled", "duplicate"] },
-};
-
 export const GROUPINGS = { status: "Status", priority: "Priority", project: "Project", assignee: "Assignee", team: "Team", label: "Label", none: "No grouping" };
 export const ORDERS = { priority: "Priority", updated: "Updated", created: "Created", due: "Due date", title: "Title" };
 export const COMPLETED = { none: "None", week: "Past week", month: "Past month" };
@@ -44,17 +36,12 @@ export function normalize(n) {
   };
 }
 
-export function matches(task, query, chip) {
-  const types = CHIPS[chip]?.types;
-  if (types && !types.includes(task.state.type)) return false;
+export function matches(task, query) {
   const q = query.trim().toLowerCase();
   return !q || `${task.id} ${task.title} ${task.project?.name ?? ""} ${task.labels.map((l) => l.name).join(" ")}`.toLowerCase().includes(q);
 }
 
-export const counts = (tasks) => Object.fromEntries(Object.entries(CHIPS).map(([key, c]) =>
-  [key, tasks.filter((t) => !c.types || c.types.includes(t.state.type)).length]));
-
-// What the display options leave of the tasks, before chips and the text query.
+// What the display options leave of the tasks, before the text query.
 export function prepare(tasks, view = DEFAULT_VIEW, now = Date.now()) {
   const span = { none: 0, week: 7 * DAY, month: 30 * DAY }[view.completed] ?? 30 * DAY;
   return tasks.filter((t) => {
@@ -138,8 +125,8 @@ export function moveKey(keys, key, target) {
 const size = (rows) => rows.reduce((n, r) => n + 1 + r.children.length, 0);
 
 // Groups of rows (and sub-groups when asked); a task whose parent is listed nests under it.
-export function group(tasks, { query = "", chip = "all", view = DEFAULT_VIEW, states = [], order = DEFAULT_ORDER, keepHidden = false } = {}) {
-  const shown = tasks.filter((t) => matches(t, query, chip));
+export function group(tasks, { query = "", view = DEFAULT_VIEW, states = [], order = DEFAULT_ORDER, keepHidden = false } = {}) {
+  const shown = tasks.filter((t) => matches(t, query));
   const ids = new Set(shown.map((t) => t.id)), cmp = comparator(view);
   const nest = view.nested && view.subIssues;
   const children = new Map();
