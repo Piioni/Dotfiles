@@ -68,7 +68,12 @@ export default class Prs extends View {
     cx.spawn(async (cx) => { await icons(); this.icons = true; cx.notify(); });
     this.refresh(cx);
     cx.timer.every(REFRESH, (cx) => { if (!hidden()) this.refresh(cx); });
-    cx.timer.every(3000, (cx) => { if (!hidden() && this.context() !== this.ctx) this.refresh(cx); });
+    // A change made in the dialog shows in the list within a few seconds.
+    cx.timer.every(3000, (cx) => {
+      const changed = shared("prs.changed")?.at;
+      if (changed && changed !== this.changedAt) { this.changedAt = changed; if (!hidden()) this.refresh(cx); }
+      else if (!hidden() && this.context() !== this.ctx) this.refresh(cx);
+    });
   }
 
   where() { return (this.last = location(this.last)); }
