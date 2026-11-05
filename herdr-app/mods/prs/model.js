@@ -5,9 +5,11 @@ export function reviewOf(pr) {
   if (pr.draft) return "draft";
   const states = pr.reviews.filter((r) => !r.sha || !pr.headOid || r.sha === pr.headOid).map((r) => r.state);
   const hasStaleReview = pr.reviews.some((r) => r.sha && pr.headOid && r.sha !== pr.headOid);
-  if ((!hasStaleReview && pr.decision === "CHANGES_REQUESTED") || states.includes("CHANGES_REQUESTED")) return "changes";
+  // Re-requesting a reviewer drops their verdict from latestReviews while the decision stays on changes: that is back to needs review.
+  if ((!hasStaleReview && pr.decision === "CHANGES_REQUESTED" && !pr.requested.length) || states.includes("CHANGES_REQUESTED")) return "changes";
   // Where the repo requires reviews GitHub's decision wins (one approval of two is not approved); without rules, any approval counts.
-  if ((!hasStaleReview && pr.decision === "APPROVED") || (!pr.decision && states.includes("APPROVED"))) return "approved";
+  // Same re-request rule as above: an approval no longer in latestReviews while someone is asked again is back to needs review.
+  if ((!hasStaleReview && pr.decision === "APPROVED" && (!pr.requested.length || states.includes("APPROVED"))) || (!pr.decision && states.includes("APPROVED"))) return "approved";
   return "needs";
 }
 
@@ -25,7 +27,43 @@ const BOT = /\[bot\]$|^app\/|^(linear(-code)?|github-actions|copilot|dependabot|
 const KINDS = { CHANGES_REQUESTED: "changes", APPROVED: "approved", COMMENTED: "reviewed" };
 
 // First line of a comment as plain text, short enough to sit on one row.
-const snippet = (body = "") => (body.split("\n").map((l) => l.replace(/[#>*_`~[\]]|<[^>]*>/g, "").trim()).find(Boolean) ?? "").slice(0, 160);
+const snippet = (body = "", max = 160) => (body.split("\n").map((l) => l.replace(/[#>*_`~[\]]|<[^>]*>/g, "").trim()).find(Boolean) ?? "").slice(0, max);
+
+const isPerson = (login, author) => Boolean(login) && login !== author && !BOT.test(login);
+
+// Where each reviewer stands: their last verdict (stale when left on an older commit) or still asked (pending).
+// A reviewer asked again loses their verdict on GitHub, so they show as pending.
+export function verdictsOf(p) {
+  const author = p.author?.login, head = p.headRefOid, seen = new Set();
+  const given = (p.latestReviews ?? []).filter((r) => KINDS[r.state] && isPerson(r.author?.login, author)).map((r) => {
+    seen.add(r.author.login);
+    return { login: r.author.login, kind: KINDS[r.state], stale: Boolean(r.commit?.oid && head && r.commit.oid !== head), at: r.submittedAt };
+  });
+  const asked = (p.reviewRequests ?? []).map((r) => r.login).filter((l) => isPerson(l, author) && !seen.has(l)).map((login) => ({ login, kind: "pending", stale: false }));
+  return [...given, ...asked];
+}
+
+// What happened after the newest review: commits pushed on top of the commit it saw, and the author's replies.
+export function sinceReview(p) {
+  const author = p.author?.login, head = p.headRefOid;
+  const r = (p.latestReviews ?? []).filter((x) => KINDS[x.state] && x.submittedAt && isPerson(x.author?.login, author)).sort((a, b) => Date.parse(b.submittedAt) - Date.parse(a.submittedAt))[0];
+  if (!r) return null;
+  const oids = p.recentCommits ?? [], seen = r.commit?.oid ? oids.indexOf(r.commit.oid) : -1;
+  // Past the commits we fetched: at least all of them are new.
+  const commits = seen >= 0 ? oids.length - 1 - seen : r.commit?.oid && head && r.commit.oid !== head ? oids.length : 0;
+  const replies = (p.comments ?? []).filter((c) => c.author?.login === author && !c.isMinimized && Date.parse(c.createdAt) > Date.parse(r.submittedAt)).length;
+  return commits || replies ? { login: r.author.login, commits, replies } : null;
+}
+
+// The last few reviews and comments from anyone (the author's replies included), newest first: the thread behind the one-line summary.
+export function activityOf(p, max = 5) {
+  return [
+    ...(p.latestReviews ?? []).filter((r) => KINDS[r.state] && r.submittedAt).map((r) => ({ login: r.author?.login, at: r.submittedAt, body: r.body, kind: KINDS[r.state] })),
+    ...(p.comments ?? []).filter((c) => !c.isMinimized).map((c) => ({ login: c.author?.login, at: c.createdAt, body: c.body, kind: "comment" })),
+  ].filter((e) => e.login && !BOT.test(e.login) && !(e.body ?? "").startsWith("<!--"))
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, max)
+    .map((e) => ({ login: e.login, at: e.at, kind: e.kind, text: snippet(e.body, 220) }));
+}
 
 // The newest review or comment left by someone other than the PR's author: { login, at, kind, text } or null.
 // kind: changes (requested), approved, reviewed (review without a verdict) or comment.
@@ -57,6 +95,7 @@ export function normalize(p, state = "open") {
     adds: p.additions ?? 0, dels: p.deletions ?? 0, files: p.changedFiles ?? 0,
     updatedAt: p.updatedAt, ci: ciOf(p.statusCheckRollup),
     merge: mergeOf(p), blocked: p.mergeStateStatus === "BLOCKED", last: lastFromOthers(p),
+    verdicts: verdictsOf(p), since: sinceReview(p), activity: activityOf(p),
   };
 }
 

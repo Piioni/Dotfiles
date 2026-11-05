@@ -21,6 +21,9 @@ const CI = { passing: ["CI", "ansi2", "check"], failing: ["CI failing", "ansi1",
 const CHIP_TONES = { conflicts: "ansi1", changes: "ansi1", approved: "ansi2", needs: "ansi3", reviewing: "ansi4" };
 const SECTION_TONES = { attention: "ansi1", ready: "ansi2", waiting: "ansi3", draft: "muted", needs: "ansi3", reviewing: "ansi4", changes: "ansi1", approved: "ansi2" };
 const LAST = { changes: ["requested changes", "ansi1"], approved: ["approved", "ansi2"], reviewed: ["reviewed", "ansi4"], comment: ["commented", "ansi4"] };
+// Where each reviewer stands: glyph, tone and what the tooltip says.
+const VERDICT = { changes: ["x", "ansi1", "requested changes"], approved: ["check", "ansi2", "approved"], reviewed: ["comment", "ansi4", "commented"], pending: ["eye", "muted", "asked to review"] };
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -28,19 +31,26 @@ function find(node, id) {
   return null;
 }
 
-// `gh pr list` returns every review's commit as empty, so ask GraphQL which commit each verdict was left on.
-// Best effort: on failure reviews keep no commit and are treated as current.
+// `gh pr list` returns every review's commit as empty, so ask GraphQL which commit each verdict was left on,
+// plus the last commits of each PR (oldest first) to count what was pushed since a review.
+// Best effort: on failure reviews keep no commit and are treated as current. Returns why it failed, or null.
 async function reviewCommits(repo, raw, on) {
   const [owner, name] = repo.split("/");
-  const query = `query($o:String!,$n:String!){repository(owner:$o,name:$n){pullRequests(states:OPEN,first:100){nodes{number latestReviews(first:30){nodes{author{login} commit{oid}}}}}}}`;
+  const query = `query($o:String!,$n:String!){repository(owner:$o,name:$n){pullRequests(states:OPEN,first:100){nodes{number latestReviews(first:30){nodes{author{login} commit{oid}}} commits(last:30){nodes{commit{oid}}}}}}}`;
   try {
     const r = await exec("gh", ["api", "graphql", "-f", `query=${query}`, "-f", `o=${owner}`, "-f", `n=${name}`], { on });
-    if (r.code !== 0) return;
-    const oids = new Map();
-    for (const p of JSON.parse(r.stdout).data.repository.pullRequests.nodes)
+    if (r.code !== 0) return (r.stderr || r.stdout).trim().split("\n")[0] || "gh failed";
+    const oids = new Map(), tails = new Map();
+    for (const p of JSON.parse(r.stdout).data.repository.pullRequests.nodes) {
+      tails.set(p.number, p.commits.nodes.map((n) => n.commit.oid));
       for (const v of p.latestReviews.nodes) oids.set(`${p.number}:${v.author?.login}`, v.commit?.oid);
-    for (const p of raw) for (const v of p.latestReviews ?? []) v.commit = { oid: oids.get(`${p.number}:${v.author?.login}`) ?? v.commit?.oid };
-  } catch { /* keep the list usable without commits */ }
+    }
+    for (const p of raw) {
+      p.recentCommits = tails.get(p.number) ?? [];
+      for (const v of p.latestReviews ?? []) v.commit = { oid: oids.get(`${p.number}:${v.author?.login}`) ?? v.commit?.oid };
+    }
+    return null;
+  } catch (e) { return String(e); }
 }
 
 // The PR dialog beats while open (see Viewer): the list behind it has no reason to change.
@@ -166,7 +176,7 @@ export default class Prs extends View {
         const r = await exec("gh", ["pr", "list", "-R", repo, "--state", state, "--limit", String(STATES[state].limit), "--json", FIELDS[state]], { on: this.repoOn });
         if (r.code !== 0) throw new Error((r.stderr || r.stdout).trim().split("\n")[0]);
         const raw = JSON.parse(r.stdout);
-        if (state === "open") await reviewCommits(repo, raw, this.repoOn);
+        if (state === "open") this.notice = await reviewCommits(repo, raw, this.repoOn);
         (this.lists[repo] ??= {})[state] = { prs: raw.map((p) => normalize(p, state)), at: Date.now() };
         keep("lists", Object.fromEntries(Object.entries(this.lists).map(([k, v]) => [k, v.open ? { open: v.open } : {}])));
         this.error = null;
@@ -243,6 +253,10 @@ export default class Prs extends View {
       if (!implied) tags.push(this.tag(`rv-${p.number}`, t, t[tone], label, glyph));
       if (!p.draft) tags.push(this.tag(`mg-${p.number}`, t, t[mergeTone], mergeLabel, mergeGlyph, `${p.head} → ${p.base}`, ["clean", "unknown"].includes(p.merge)));
       if (p.merge === "clean" && p.blocked && review === "approved") tags.push(this.tag(`bl-${p.number}`, t, t.ansi3, "Blocked", "alert", "Approved, but GitHub still blocks the merge: required checks or reviews are missing"));
+      if (p.since) {
+        const parts = [p.since.commits && plural(p.since.commits, "new commit"), p.since.replies && plural(p.since.replies, "author reply")].filter(Boolean);
+        tags.push(this.tag(`sc-${p.number}`, t, t.ansi4, parts.join(" · "), p.since.commits ? "commit" : "comment", `Since ${handle(p.since.login)}'s last review: ${parts.join(" and ")}`));
+      }
       if (p.ci) { const [ciLabel, ciTone, ciGlyph] = CI[p.ci]; tags.push(this.tag(`ci-${p.number}`, t, t[ciTone], ciLabel, ciGlyph, `Checks ${p.ci}`, p.ci !== "failing")); }
     } else tags.push(this.tag(`st-${p.number}`, t, p.state === "merged" ? t.ansi5 : t.ansi1, p.state === "merged" ? "Merged" : "Closed", p.state === "merged" ? "merged" : "closed"));
     const reviewers = open && p.assignees.length
@@ -271,10 +285,18 @@ export default class Prs extends View {
               .when(!mine, (e) => e.child(div().text_color(t.muted).child(handle(p.author))).child(div().text_color(t.dim).child("·")))
               .child(div().text_color(t.dim).child(age(p.updatedAt))))
             .children(tags)
+            .when(open && p.verdicts.length > 0, (e) => e.child(h_flex().gap(6).flex_none().items_center().children(p.verdicts.map((v) => {
+              const [glyph, tone, said] = VERDICT[v.kind];
+              return h_flex().id(`vd-${p.number}-${v.login}`).gap(2).items_center().opacity(v.stale ? 0.5 : 1)
+                .tooltip(`${handle(v.login)}: ${said}${v.stale ? " on an older commit" : ""}`)
+                .child(avatar(v.login, null, 14, t, cx))
+                .when(this.icons, (x) => x.child(svg(icon(glyph)).size(10).text_color(t[tone])));
+            }))))
             .when(reviewers !== null, (e) => e.child(reviewers))
             .child(div().flex_1())
             .child(h_flex().gap(4).flex_none().child(div().text_color(t.ansi2).child(`+${p.adds}`)).child(div().text_color(t.ansi1).child(`−${p.dels}`))))
           .when(Boolean(last), (e) => e.child(h_flex().gap(6).items_center().min_w(0).mt(1).px(8).py(4).rounded(6).bg(t.raised).text_size(11)
+            .when(p.activity.length > 1, (x) => x.tooltip(p.activity.map((a) => `${handle(a.login)} ${LAST[a.kind][0]} · ${age(a.at)} ago${a.text ? `\n    ${a.text}` : ""}`).join("\n")))
             .child(avatar(last.login, null, 14, t, cx))
             .child(div().flex_none().font_medium().text_color(t[lastTone]).child(`${handle(last.login)} ${verb}`))
             .child(div().flex_1().min_w(0).truncate().text_color(t.muted).child(last.text))
@@ -285,7 +307,7 @@ export default class Prs extends View {
   section(key, tone, label, count, closed, t, first) {
     return h_flex().id(`section-${key}`).h(30).flex_none().px(8).gap(8).items_center().rounded(7).bg(t.raised).cursor_pointer().mt(first ? 0 : 8)
       .hover((s) => s.bg(t.hover))
-      .on_click((_e, cx) => { this.fold.has(key) ? this.fold.delete(key) : this.fold.add(key); keep("fold", [...this.fold]); cx.notify(); })
+      .on_click((_e, cx) => { if (this.fold.has(key)) this.fold.delete(key); else this.fold.add(key); keep("fold", [...this.fold]); cx.notify(); })
       .child(div().size(12).flex_none().when(this.icons, (e) => e.child(svg(icon(closed ? "chev-r" : "chev-d")).size(12).text_color(t.dim))))
       .child(div().size(8).flex_none().rounded(4).bg(t[tone]))
       .child(div().font_semibold().text_size(12).child(label))
@@ -358,6 +380,8 @@ export default class Prs extends View {
         .when(chips.length > 0, (e) => e.child(div().w(1).h(16).flex_none().bg(t.border)))
         .children(chips.map(([k, ch]) => this.chipView(k, ch.label, c[k], chip === k, t,
           (_e, cx) => { this.chip[this.scope] = chip === k ? "all" : k; keep("chip", this.chip); cx.notify(); }))))
+      .when(Boolean(this.notice && this.state === "open" && !this.error), (e) => e.child(div().flex_none().px(14).py(4).text_size(11).text_color(t.ansi3).border_b(1).border_color(t.border).truncate()
+        .tooltip(this.notice).child("Couldn't read review commits: reviews on older commits may still count")))
       .when(Boolean(this.error && entry), (e) => e.child(div().flex_none().px(14).py(6).text_size(11).text_color(t.ansi1).border_b(1).border_color(t.border).truncate().child(this.error)))
       .child(v_flex().id("prs-list").flex_1().min_h(0).overflow_y_scrollbar().p(6).gap(2)
         .children(sections

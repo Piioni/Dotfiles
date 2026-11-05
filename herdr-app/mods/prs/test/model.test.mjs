@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalize, reviewOf, ciOf, counts, shown, grouped, lastFromOthers, mergeOf } from "../model.js";
+import { normalize, reviewOf, ciOf, counts, shown, grouped, lastFromOthers, mergeOf, verdictsOf, sinceReview, activityOf } from "../model.js";
 
 const raw = (number, over = {}) => ({
   number, title: `PR ${number}`, url: `https://github.com/a/b/pull/${number}`, author: { login: "ana" }, assignees: [], reviewRequests: [],
@@ -17,6 +17,48 @@ test("review state: drafts first, then changes beat approvals, no review means n
   assert.equal(reviewOf(pr(1)), "needs");
   assert.equal(reviewOf(pr(1, { headRefOid: "new", reviewDecision: "CHANGES_REQUESTED", latestReviews: [{ state: "CHANGES_REQUESTED", commit: { oid: "old" } }] })), "needs");
   assert.equal(reviewOf(pr(1, { headRefOid: "new", reviewDecision: "CHANGES_REQUESTED", latestReviews: [{ state: "CHANGES_REQUESTED", commit: { oid: "new" } }] })), "changes");
+});
+
+test("re-requesting the reviewer who asked for changes puts the PR back to needs review", () => {
+  const requested = [{ login: "juan" }];
+  assert.equal(reviewOf(pr(1, { reviewDecision: "CHANGES_REQUESTED", reviewRequests: requested })), "needs");
+  assert.equal(reviewOf(pr(1, { reviewDecision: "CHANGES_REQUESTED", reviewRequests: requested, latestReviews: [{ state: "CHANGES_REQUESTED" }] })), "changes");
+});
+
+test("re-requesting the approver puts an approved PR back to needs review, an extra reviewer does not", () => {
+  const requested = [{ login: "juan" }];
+  assert.equal(reviewOf(pr(1, { reviewDecision: "APPROVED", reviewRequests: requested })), "needs");
+  assert.equal(reviewOf(pr(1, { reviewDecision: "APPROVED", reviewRequests: requested, latestReviews: [{ state: "APPROVED" }] })), "approved");
+});
+
+test("each reviewer's standing: verdict, stale on an older commit, or asked again", () => {
+  const p = raw(1, { headRefOid: "c3", reviewRequests: [{ login: "cy" }, { login: "bo" }, { login: "ana" }], latestReviews: [
+    { author: { login: "bo" }, state: "APPROVED", commit: { oid: "c3" }, submittedAt: "2026-11-02T00:00:00Z" },
+    { author: { login: "di" }, state: "CHANGES_REQUESTED", commit: { oid: "c1" }, submittedAt: "2026-11-01T00:00:00Z" },
+    { author: { login: "linear-code" }, state: "COMMENTED", commit: { oid: "c3" }, submittedAt: "2026-11-02T00:00:00Z" }] });
+  assert.deepEqual(verdictsOf(p).map((v) => [v.login, v.kind, v.stale]), [["bo", "approved", false], ["di", "changes", true], ["cy", "pending", false]]);
+});
+
+test("since the newest review: commits pushed on top of the one it saw, and the author's replies", () => {
+  const review = { author: { login: "bo" }, state: "CHANGES_REQUESTED", commit: { oid: "c2" }, submittedAt: "2026-11-02T00:00:00Z" };
+  const reply = (at, who = "ana") => ({ author: { login: who }, createdAt: at, body: "done" });
+  const p = raw(1, { headRefOid: "c4", recentCommits: ["c1", "c2", "c3", "c4"], latestReviews: [review],
+    comments: [reply("2026-11-03T00:00:00Z"), reply("2026-11-01T00:00:00Z"), reply("2026-11-03T00:00:00Z", "bo")] });
+  assert.deepEqual(sinceReview(p), { login: "bo", commits: 2, replies: 1 });
+  assert.equal(sinceReview({ ...p, headRefOid: "c2", recentCommits: ["c1", "c2"], comments: [] }), null);
+  // The review is older than the commits we fetched: all of them count.
+  assert.equal(sinceReview({ ...p, recentCommits: ["c3", "c4"], comments: [] }).commits, 2);
+  // No commit data (the lookup failed): only replies show.
+  assert.deepEqual(sinceReview({ ...p, latestReviews: [{ ...review, commit: { oid: "" } }], recentCommits: undefined }), { login: "bo", commits: 0, replies: 1 });
+  assert.equal(sinceReview(raw(1)), null);
+});
+
+test("activity: the last events from anyone, newest first, bots out", () => {
+  const p = raw(1, {
+    latestReviews: [{ author: { login: "bo" }, state: "CHANGES_REQUESTED", submittedAt: "2026-11-02T00:00:00Z", body: "## Fix the null\nmore" }],
+    comments: [{ author: { login: "ana" }, createdAt: "2026-11-03T00:00:00Z", body: "fixed" }, { author: { login: "linear-code" }, createdAt: "2026-11-04T00:00:00Z", body: "link" }] });
+  assert.deepEqual(activityOf(p).map((e) => [e.login, e.kind, e.text]), [["ana", "comment", "fixed"], ["bo", "changes", "Fix the null"]]);
+  assert.equal(activityOf(p, 1).length, 1);
 });
 
 test("ci mixes check runs and commit statuses", () => {
