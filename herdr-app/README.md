@@ -5,8 +5,6 @@ files (layouts, mods, keys, settings), so this folder *is* the app's look and be
 
 ![The piioni layout](hero.png)
 
-*(The terminal and work project names are blurred in the screenshots.)*
-
 ## The layout: `piioni`
 
 ```

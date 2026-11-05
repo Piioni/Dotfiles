@@ -4,7 +4,7 @@ GitHub pull requests as a panel in Herdr, with a full PR dialog one click away.
 
 ![The PRs panel](screenshot.png)
 
-*(Titles, users and avatars are blurred in the screenshot.)*
+*(Usernames are blurred in the screenshot.)*
 
 ## What it does
 

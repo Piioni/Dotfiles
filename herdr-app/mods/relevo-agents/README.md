@@ -4,8 +4,6 @@ Herdr's **Agents** list, plus a launcher menu, the account each agent runs on an
 
 ![The agents list](screenshot.png)
 
-*(Space and agent names of work projects are blurred in the screenshot.)*
-
 ## What it adds to the stock `agents` mod
 
 Everything else (priority sections, grouping by space, pins, sub-agents, durations, sorting) is Herdr's own.

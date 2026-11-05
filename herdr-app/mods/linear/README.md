@@ -4,8 +4,6 @@ Your Linear tickets as a panel in Herdr.
 
 ![The Linear panel](screenshot.png)
 
-*(Ticket ids, titles and project names are blurred in the screenshot.)*
-
 ## What it does
 
 - Lists **My issues**, or any saved **View**, grouped by workflow state (In Progress, Todo, Merged, In QA, Backlog, Done);
