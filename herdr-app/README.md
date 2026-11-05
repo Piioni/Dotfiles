@@ -45,7 +45,29 @@ Each mod has its own README with what it does, why it exists, what it needs and 
   [herdr-relevo](https://github.com/johnny4young/herdr-relevo).
 - `prs`, `linear`: my own.
 
-## Install
+## Get it yourself
+
+The easiest way is to let your agent do it, picking only what you want. Tell your agent to:
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add the mods from https://github.com/Piioni/herdr-dots to my
+Herdr app, asking me what I want. Go mod by mod: read its README, tell me what it is and how it works,
+and ask whether I want it. Only add the ones I say yes to, and never replace my keys.json, settings.json
+or layouts without asking.
+
+Be careful with relevo and relevo-agents: they are built around one person's workflow (provider accounts,
+launchers, and Claude/Pi/Codex profiles), so do not copy mods/relevo/config.js as it is. If I want them,
+explain what accounts, launchers and profiles are, ask me which ones I have, and write a config for me.
+The account circle and the background-work capsule need the Claude Code hook in mods/relevo/hooks: explain
+what it does and ask before installing it.
+
+prs needs the GitHub CLI (gh) logged in. linear needs a Linear API key in ~/.config/linear/token: ask me
+to put it there myself, and never ask me to paste it in a command line. The ion-* mods are clones of Herdr's
+own files, changes and tabs: tell me what each one changes before adding it. The piioni layout is
+optional: ask me if I want to use it or only some of its pieces.
+```
+
+## Install by hand
 
 Herdr reads `~/.config/herdr-app`, and creates it on first start, so the folder usually exists. With Herdr closed,
 turn it into a checkout of this repo (the allow-list `.gitignore` keeps Herdr's own files out of the way):
@@ -75,16 +97,6 @@ Then start Herdr and switch to the layout (`Ctrl+Shift+L`, or `herdr-app do layo
 
 Only what is mine; the `.gitignore` is an allow-list. Herdr's own files (shipped mods and layouts, icons, type
 definitions, `AGENTS.md`), per-mod data and caches (`data/`), and window and shared state are ignored.
-
-## Development
-
-```sh
-herdr-app check mods/<mod>                 # loads a mod once; required before calling one done
-cd mods/relevo && node --test 'test/*.test.mjs'
-cd mods/prs    && node --test test/*.test.mjs
-```
-
-`herdr-app shot file.png` saves a real screenshot of the running app.
 
 ## License
 
