@@ -22,6 +22,10 @@ const ICONS = {
   branch: SVG(`<line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>`),
   dot: SVG(`<circle cx="12" cy="12" r="4" fill="currentColor"/>`),
   comment: SVG(`<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>`),
+  alert: SVG(`<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>`),
+  search: SVG(`<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`),
+  "chev-r": SVG(`<path d="m9 6 6 6-6 6"/>`),
+  "chev-d": SVG(`<path d="m6 9 6 6 6-6"/>`),
   refresh: SVG(`<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>`),
 };
 

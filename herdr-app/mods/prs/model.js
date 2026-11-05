@@ -5,7 +5,8 @@ export function reviewOf(pr) {
   if (pr.draft) return "draft";
   const states = pr.reviews.map((r) => r.state);
   if (pr.decision === "CHANGES_REQUESTED" || states.includes("CHANGES_REQUESTED")) return "changes";
-  if (pr.decision === "APPROVED" || states.includes("APPROVED")) return "approved";
+  // Where the repo requires reviews GitHub's decision wins (one approval of two is not approved); without rules, any approval counts.
+  if (pr.decision ? pr.decision === "APPROVED" : states.includes("APPROVED")) return "approved";
   return "needs";
 }
 
@@ -18,6 +19,32 @@ export function ciOf(rollup = []) {
   return rollup.some(pending) ? "pending" : "passing";
 }
 
+// Bots and bot-looking comments (Linear link-backs, CI reports) are not "someone else's feedback".
+const BOT = /\[bot\]$|^app\/|^(linear(-code)?|github-actions|copilot|dependabot|vercel|codecov|sonarcloud|sonarqubecloud)$/i;
+const KINDS = { CHANGES_REQUESTED: "changes", APPROVED: "approved", COMMENTED: "reviewed" };
+
+// First line of a comment as plain text, short enough to sit on one row.
+const snippet = (body = "") => (body.split("\n").map((l) => l.replace(/[#>*_`~[\]]|<[^>]*>/g, "").trim()).find(Boolean) ?? "").slice(0, 160);
+
+// The newest review or comment left by someone other than the PR's author: { login, at, kind, text } or null.
+// kind: changes (requested), approved, reviewed (review without a verdict) or comment.
+export function lastFromOthers(p) {
+  const author = p.author?.login;
+  const events = [
+    ...(p.latestReviews ?? []).filter((r) => KINDS[r.state] && r.submittedAt).map((r) => ({ login: r.author?.login, at: r.submittedAt, body: r.body, kind: KINDS[r.state] })),
+    ...(p.comments ?? []).filter((c) => !c.isMinimized).map((c) => ({ login: c.author?.login, at: c.createdAt, body: c.body, kind: "comment" })),
+  ].filter((e) => e.login && e.login !== author && !BOT.test(e.login) && !(e.body ?? "").startsWith("<!--"));
+  const last = events.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
+  return last ? { login: last.login, at: last.at, kind: last.kind, text: snippet(last.body) } : null;
+}
+
+// Can it merge into its base: conflicts, behind (clean but out of date), clean, or unknown while GitHub still works it out.
+export function mergeOf(p) {
+  if (p.mergeable === "CONFLICTING") return "conflicts";
+  if (p.mergeable !== "MERGEABLE") return "unknown";
+  return p.mergeStateStatus === "BEHIND" ? "behind" : "clean";
+}
+
 export function normalize(p, state = "open") {
   return {
     number: p.number, title: p.title, url: p.url, author: p.author?.login ?? "ghost", bot: Boolean(p.author?.is_bot),
@@ -28,6 +55,7 @@ export function normalize(p, state = "open") {
     labels: p.labels ?? [], head: p.headRefName, base: p.baseRefName,
     adds: p.additions ?? 0, dels: p.deletions ?? 0, files: p.changedFiles ?? 0,
     updatedAt: p.updatedAt, ci: ciOf(p.statusCheckRollup),
+    merge: mergeOf(p), blocked: p.mergeStateStatus === "BLOCKED", last: lastFromOthers(p),
   };
 }
 
@@ -37,6 +65,7 @@ export const SCOPES = { all: "All", mine: "Mine" };
 export const CHIPS = {
   mine: {
     all: { label: "All", test: () => true },
+    conflicts: { label: "Conflicts", test: (p) => p.merge === "conflicts" },
     changes: { label: "Changes requested", test: (p) => reviewOf(p) === "changes" },
     approved: { label: "Approved", test: (p) => reviewOf(p) === "approved" },
     needs: { label: "Awaiting review", test: (p) => reviewOf(p) === "needs" },
@@ -44,8 +73,8 @@ export const CHIPS = {
   },
   all: {
     all: { label: "All", test: () => true },
-    unassigned: { label: "Unassigned", test: (p) => !p.assignees.length },
-    needs: { label: "Needs review", test: (p) => reviewOf(p) === "needs" },
+    needs: { label: "Needs review", test: (p) => reviewOf(p) === "needs" && !p.assignees.length },
+    reviewing: { label: "Being reviewed", test: (p) => !p.draft && p.assignees.length > 0 },
     asked: { label: "Asked of me", test: (p, me) => p.requested.includes(me) },
     draft: { label: "Drafts", test: (p) => p.draft },
   },
@@ -63,4 +92,24 @@ export function shown(prs, { scope, chip, query = "", me }) {
   return inScope(prs, scope, me).filter((p) => test(p, me)
     && (!q || `#${p.number} ${p.title} ${p.author} ${p.head} ${p.labels.map((l) => l.name).join(" ")}`.toLowerCase().includes(q)))
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+}
+
+// Assignees mean "someone is reviewing this right now": the team assigns on starting a review and unassigns on finishing it.
+const GROUPS = {
+  mine: [["attention", "Needs your attention"], ["ready", "Ready to merge"], ["waiting", "Waiting for review"], ["draft", "Drafts"]],
+  all: [["needs", "Needs a reviewer"], ["reviewing", "Being reviewed"], ["changes", "Changes requested"], ["approved", "Approved"], ["draft", "Drafts"]],
+};
+
+function bucket(p, scope) {
+  const review = reviewOf(p);
+  if (review === "draft") return "draft";
+  if (scope === "mine") return review === "changes" || p.merge === "conflicts" || p.ci === "failing" ? "attention" : review === "approved" && p.merge === "clean" && !p.blocked && p.ci !== "pending" ? "ready" : "waiting";
+  return review === "changes" || review === "approved" ? review : p.assignees.length ? "reviewing" : "needs";
+}
+
+// The list split into titled sections, in the order that puts what needs action first; empty ones are left out.
+export function grouped(prs, scope) {
+  const by = new Map(GROUPS[scope].map(([key, label]) => [key, { key, label, prs: [] }]));
+  for (const p of prs) by.get(bucket(p, scope)).prs.push(p);
+  return [...by.values()].filter((g) => g.prs.length);
 }

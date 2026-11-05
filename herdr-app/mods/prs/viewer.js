@@ -1,7 +1,8 @@
 import { div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, TextView, TextareaState, Textarea } from "gpui-base";
 import { exec, theme, closeOverlay, notify, setShared } from "herdr";
-import { icons, icon, avatarPath, loadAvatar } from "./icons.js";
+import { icons, icon } from "./icons.js";
+import { avatar } from "./people.js";
 import { blocks, picture, failed, loadPicture } from "./pictures.js";
 import { timeline, checks, login, shown, bot, reactions } from "./timeline.js";
 import { reviewArgs, commentArgs, stateArgs, readyArgs, assignArgs, labelArgs } from "./actions.js";
@@ -164,16 +165,7 @@ export class Viewer {
 
   // ---- drawing ----
 
-  pic(name, url, size, t, cx) {
-    const loading = loadAvatar(name, url);
-    if (loading) cx.spawn(async (cx) => { if (await loading) cx.notify(); });
-    const path = avatarPath(name);
-    if (path) return image(path).size(size).flex_none().rounded(size / 2);
-    const colors = [t.ansi1, t.ansi2, t.ansi3, t.ansi4, t.ansi5, t.ansi6];
-    const color = colors[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % colors.length];
-    return div().size(size).flex_none().rounded(size / 2).flex().items_center().justify_center().bg(color + "33")
-      .text_size(Math.round(size * 0.5)).font_semibold().text_color(color).child(shown(name).slice(0, 1).toUpperCase());
-  }
+  pic(name, url, size, t, cx) { return avatar(name, url, size, t, cx); }
 
   glyph(name, size, color) { return div().size(size).flex_none().when(this.icons, (e) => e.child(svg(icon(name)).size(size).text_color(color))); }
 
@@ -248,7 +240,7 @@ export class Viewer {
     const strong = (text) => div().font_semibold().text_color(t.foreground).child(text);
     const muted = (text) => div().child(text);
     const parts = [];
-    let [glyph, fill] = [{ labels: "tag", assign: "user", request: "eye", renamed: "pencil", mention: "link", commits: "commit", forcepush: "commit", branchdeleted: "branch", draft: "pull", ready: "open" }[e.kind] ?? "dot", null];
+    let [glyph, fill] = [{ labels: "tag", assign: "user", request: "eye", renamed: "pencil", mention: "link", commits: "commit", forcepush: "commit", branchdeleted: "branch", draft: "draft", ready: "open" }[e.kind] ?? "dot", null];
     switch (e.kind) {
       case "labels":
         if (e.added.length) parts.push(muted("added"), ...e.added.map((l) => labelChip(l, t)));
