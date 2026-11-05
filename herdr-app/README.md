@@ -5,24 +5,6 @@ files (layouts, mods, keys, settings), so this folder *is* the app's look and be
 
 ![The piioni layout](hero.png)
 
-## The layout: `piioni`
-
-```
-┌ sidebar ─────────┬ tab bar (ion-tabs)                    ┬ panel buttons ┐
-│ search / toggle  ├───────────────────────────────────────┼───────────────┤
-│ accounts (relevo)│                                       │ panel bar     │
-│ spaces           │          terminal panes               │ (relevo)      │
-│ agents           │                                       ├───────────────┤
-│  (relevo-agents) │                                       │ Files │ Changes│
-│ settings         │                                       │ PRs │ Linear   │
-├──────────────────┴───────────────────────────────────────┴───────────────┤
-│ status bar                                                               │
-└──────────────────────────────────────────────────────────────────────────┘
-```
-
-Sidebar on the left (accounts and usage, spaces, agents), terminals in the middle, and a switchable panel on the right
-for files, changes, pull requests and tickets. Theme: Catppuccin (`themes/catppuccin.json`).
-
 ## Mods
 
 | Mod | What it is | |
@@ -66,21 +48,6 @@ to put it there myself, and never ask me to paste it in a command line. The ion-
 own files, changes and tabs: tell me what each one changes before adding it. The piioni layout is
 optional: ask me if I want to use it or only some of its pieces.
 ```
-
-## Install by hand
-
-Herdr reads `~/.config/herdr-app`, and creates it on first start, so the folder usually exists. With Herdr closed,
-turn it into a checkout of this repo (the allow-list `.gitignore` keeps Herdr's own files out of the way):
-
-```sh
-cd ~/.config/herdr-app
-git init -b main
-git remote add origin git@github.com:Piioni/herdr-dots.git
-git fetch origin
-git checkout -f -B main origin/main    # overwrites keys.json, settings.json and the piioni layout
-```
-
-Then start Herdr and switch to the layout (`Ctrl+Shift+L`, or `herdr-app do layout.switch '{"name":"piioni"}'`).
 
 ### What the mods need
 
