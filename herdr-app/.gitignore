@@ -19,9 +19,9 @@
 !/mods/prs/
 !/mods/relevo/
 !/mods/relevo-agents/
-!/mods/piioni-changes/
-!/mods/piioni-files/
-!/mods/piioni-tabs/
+!/mods/ion-changes/
+!/mods/ion-files/
+!/mods/ion-tabs/
 
 # Written by gpui-shell into every mod folder.
 gpui-kit.d.ts

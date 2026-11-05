@@ -1,5 +1,5 @@
-// Catppuccin Mocha icons (MIT, github.com/catppuccin/vscode-icons) in mods/piioni-files/icons/.
-const DIR = "mods/piioni-files/icons";
+// Catppuccin Mocha icons (MIT, github.com/catppuccin/vscode-icons) in mods/ion-files/icons/.
+const DIR = "mods/ion-files/icons";
 
 /** @type {Record<string, string>} */
 const BY_NAME = {

@@ -117,7 +117,7 @@ export default class Changes extends View {
     if (!this.root) return;
     this.open = file.path;
     const name = `diff · ${file.path.split("/").pop()}`;
-    const init = `VIMINIT=source ${appHome()}/mods/piioni-changes/diff.lua`;
+    const init = `VIMINIT=source ${appHome()}/mods/ion-changes/diff.lua`;
     const argv = file.fresh || (!this.hasHead && file.status === "A")
       ? ["env", init, "nvim", "-R", file.path]
       : ["env", init, "git", "-c", "diff.tool=nvimdiff", "difftool", "-y", ...(this.hasHead ? ["HEAD"] : []), "--", file.path];

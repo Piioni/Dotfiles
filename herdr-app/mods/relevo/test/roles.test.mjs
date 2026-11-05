@@ -7,10 +7,11 @@ import { fakeCx, flush } from "./fake/ui.mjs";
 
 const { default: Relevo } = await import("../main.js");
 const { default: Agents } = await import("../../relevo-agents/main.js");
-const { default: Files } = await import("../../piioni-files/main.js");
+const { default: Files } = await import("../../ion-files/main.js");
 
 const { loadKeys, shortcut } = await import("../ui.js");
 
+/** @type {Record<string, Record<string, any>>} */
 const ROLES = {
   accounts: {}, "panel-bar": {}, "panel-toggle": {}, settings: {},
   "find-file": { root: "/work/app" }, "checkout-menu": { top: "/work/app", list: [] },
@@ -26,6 +27,7 @@ beforeEach(() => {
   fake.focused = { space: "sp1", tab: "tb1", pane: "p1", agent: "t1" };
 });
 
+/** @param {new () => any} Mod @param {Record<string, any>} props */
 async function draw(Mod, props) {
   fake.props = props;
   const mod = new Mod(), cx = fakeCx();
@@ -39,7 +41,7 @@ for (const [role, props] of Object.entries(ROLES)) {
   test(`relevo: ${role} draws`, () => draw(Relevo, { role, ...props }));
 }
 test("relevo-agents draws", () => draw(Agents, {}));
-test("piioni-files draws", () => draw(Files, {}));
+test("ion-files draws", () => draw(Files, {}));
 
 test("tooltips read a key from the layout's section of keys.json", async () => {
   fake.files["/home/test/.config/herdr-app/keys.json"] = JSON.stringify({ "layout:relevo": { "cmd-j": "relevo.next-waiting" } });

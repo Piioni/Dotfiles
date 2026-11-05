@@ -113,7 +113,7 @@
               "type": "block",
               "window_drag": true,
               "content": {
-                "mod": "piioni-tabs"
+                "mod": "ion-tabs"
               }
             },
             {
@@ -152,7 +152,7 @@
               },
               "window_drag": true,
               "content": {
-                "mod": "piioni-tabs",
+                "mod": "ion-tabs",
                 "props": {
                   "panels": true
                 }
@@ -245,7 +245,7 @@
                           "id": "files-body",
                           "type": "block",
                           "content": {
-                            "mod": "piioni-files"
+                            "mod": "ion-files"
                           }
                         }
                       ]
@@ -271,7 +271,7 @@
                           "id": "changes-body",
                           "type": "block",
                           "content": {
-                            "mod": "piioni-changes"
+                            "mod": "ion-changes"
                           }
                         }
                       ]

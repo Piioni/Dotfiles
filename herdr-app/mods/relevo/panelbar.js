@@ -154,7 +154,7 @@ export class FileFinder {
     if (!file) return;
     const p = props();
     closeOverlay(p.overlay);
-    run("pane.split", { direction: "right", mod: "piioni-files", props: { role: "view", root: p.root, file } });
+    run("pane.split", { direction: "right", mod: "ion-files", props: { role: "view", root: p.root, file } });
   }
 
   key(e, cx) {

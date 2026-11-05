@@ -14,8 +14,8 @@ const { NameDialog } = await import("../actions.js");
 beforeEach(resetFake);
 
 test("the file browser does not follow symlinks outside its selected folder", async (t) => {
-  const root = mkdtempSync(join(tmpdir(), "piioni-files-root-"));
-  const outside = mkdtempSync(join(tmpdir(), "piioni-files-outside-"));
+  const root = mkdtempSync(join(tmpdir(), "ion-files-root-"));
+  const outside = mkdtempSync(join(tmpdir(), "ion-files-outside-"));
   t.after(() => {
     rmSync(root, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
