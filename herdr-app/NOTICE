@@ -1,0 +1,15 @@
+Herdr app configuration (herdr-dots)
+
+This project is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Parts of it are derived from other Apache-2.0 work:
+
+- mods/relevo, mods/relevo-agents and mods/ion-files derive from
+  herdr-relevo (https://github.com/johnny4young/herdr-relevo, Apache-2.0).
+  Changes: Linux behavior (bash launchers, Claude credential files, GNU stat,
+  gio trash), separate accounts and launchers in Settings, a smaller scope
+  (Inbox, PR review and time ledger removed), Linear and GitHub PR panels
+  living in their own mods.
+- mods/relevo-agents, mods/ion-files, mods/ion-changes and mods/ion-tabs derive
+  from the agents, files, changes and tabs mods that ship with Herdr
+  (Apache-2.0). See each mod's README for what changed.

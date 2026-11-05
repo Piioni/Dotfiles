@@ -1,6 +1,10 @@
 # Herdr rewrites most of this folder on every start; only personal files are versioned.
 /*
 !/.gitignore
+!/README.md
+!/LICENSE
+!/NOTICE
+!/hero.png
 !/keys.json
 !/settings.json
 !/layouts/
