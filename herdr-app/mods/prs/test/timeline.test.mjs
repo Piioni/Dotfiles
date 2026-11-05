@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { timeline, inlineByReview, checks, assignWords } from "../timeline.js";
+import { timeline, inlineByReview, checks, assignWords, elapsed } from "../timeline.js";
 
 const actor = (/** @type {string} */ login) => ({ login, avatar_url: `https://a/${login}` });
 
@@ -65,4 +65,14 @@ test("checks mix check runs and statuses into passing, failing, pending or skipp
   ]);
   assert.deepEqual(rows.map((r) => r.outcome), ["passing", "failing", "pending", "passing", "skipped"]);
   assert.equal(rows[3].name, "legacy");
+});
+
+test("check duration from startedAt/completedAt", () => {
+  assert.equal(elapsed("2026-01-01T10:00:00Z", "2026-01-01T10:00:45Z"), "45s");
+  assert.equal(elapsed("2026-01-01T10:00:00Z", "2026-01-01T10:02:05Z"), "2m 5s");
+  assert.equal(elapsed("2026-01-01T10:00:00Z", "2026-01-01T11:03:30Z"), "1h 3m");
+  // gh reports 0001-01-01 as the end of a check still running
+  assert.equal(elapsed("2026-01-01T10:00:00Z", "0001-01-01T00:00:00Z"), null);
+  assert.equal(elapsed(undefined, "2026-01-01T10:00:00Z"), null);
+  assert.equal(checks([{ name: "b", status: "COMPLETED", conclusion: "SUCCESS", startedAt: "2026-01-01T10:00:00Z", completedAt: "2026-01-01T10:00:09Z" }])[0].took, "9s");
 });

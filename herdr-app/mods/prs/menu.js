@@ -1,6 +1,6 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { exec, theme, closeOverlay, openOverlay, notify } from "herdr";
+import { exec, theme, closeOverlay, openOverlay, notify, run } from "herdr";
 import { icons, icon } from "./icons.js";
 
 export function openUrl(url) {
@@ -13,7 +13,7 @@ const menuHeight = (items) => items.length * ROW + PAD * 2;
 
 export const openMenu = (items) => openOverlay({ mod: "prs", kind: "popup", at: "pointer", width: 340, height: menuHeight(items), props: { menu: { items } } });
 
-// A popup menu: props().menu = { items: [{ label, detail?, glyph?, copy? | url? }] }; a click does it and closes the popup.
+// A popup menu: props().menu = { items: [{ label, detail?, glyph?, copy? | url? | command?: { name, args } }] }; a click does it and closes the popup.
 export class Menu {
   constructor({ items }, overlay, cx) {
     this.items = items; this.overlay = overlay;
@@ -23,6 +23,7 @@ export class Menu {
   pick(item, cx) {
     if (item.copy) { cx.write_to_clipboard(item.copy); notify({ title: "Copied", body: item.copy, level: "success", timeout: 2500 }); }
     if (item.url) openUrl(item.url);
+    if (item.command) run(item.command.name, item.command.args);
     closeOverlay(this.overlay);
   }
 

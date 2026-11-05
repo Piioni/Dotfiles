@@ -33,6 +33,17 @@ function branchChip(id, name, t) {
     .hover((s) => s.bg(t.hover)).tooltip("Copy branch name").on_click(copy(name, "Branch copied")).child(name);
 }
 
+// The Linear issue of the branch key: its state dot and name once known (click opens it), else the bare key (click copies it).
+function linearChip(v, pr, t) {
+  const key = v.linearKey(pr);
+  if (!key) return null;
+  const issue = v.linear[key], chip = h_flex().id("pr-linear").h(22).px(8).gap(6).flex_none().items_center().rounded(11).border_1().border_color(t.border).text_size(12).cursor_pointer().hover((s) => s.bg(t.hover));
+  if (!issue) return chip.text_color(t.muted).tooltip(`Copy ${key}`).on_click(copy(key, "Linear key copied")).child(key);
+  return chip.text_color(t.foreground).tooltip(`${issue.title} \u2014 open in Linear`).on_click(() => openUrl(issue.url))
+    .child(div().size(8).flex_none().rounded(4).bg(issue.state.color)).child(div().font_medium().child(issue.identifier))
+    .child(div().text_color(t.muted).child(issue.state.name));
+}
+
 export function bar(v, pr, t) {
   const message = (pr && v.error) || (v.failed?.where === "bar" ? v.failed.message : "");
   return h_flex().h(28).gap(8).items_center()
@@ -76,6 +87,7 @@ export function header(v, h, pr, t) {
   const state = merged ? tag(v, t, tone(t, "merged"), "Merged", "merged") : closed ? tag(v, t, tone(t, "bad"), "Closed", "closed")
     : h.draft ? tag(v, t, t.muted, "Draft", "draft", { quiet: true }) : tag(v, t, tone(t, "ok"), "Open", "open", { quiet: true });
   return v_flex().flex_none().px(32).pt(14).gap(12).border_b(1).border_color(t.border)
+    .on_mouse_down("left", () => v.handle.focus())
     .child(bar(v, pr, t))
     .child(h_flex().flex_wrap().gap_x(7).text_size(22).font_semibold()
       .children(h.title.split(/\s+/).filter(Boolean).map((w) => div().child(w)))
@@ -89,6 +101,7 @@ export function header(v, h, pr, t) {
       .child(h_flex().gap(6).text_size(13).font_semibold().child(div().text_color(t.ansi2).child(`+${h.adds}`)).child(div().text_color(t.ansi1).child(`\u2212${h.dels}`)))
       .when(open && h.conflicts, (e) => e.child(tag(v, t, tone(t, "bad"), "Conflicts", "alert", { tip: "This branch has conflicts with the base branch" })))
       .when(behind > 0, (e) => e.child(tag(v, t, tone(t, "warn"), `${behind} behind`, "behind", { tip: `${plural(behind, "commit")} behind ${h.base}` })))
+      .when(Boolean(pr && v.linearKey(pr)), (e) => e.child(linearChip(v, pr, t)))
       .child(div().flex_1())
       .children(role(v, pr, t)))
     .child(h_flex().gap(4).h(40).items_end()

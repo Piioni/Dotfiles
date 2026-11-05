@@ -4,6 +4,7 @@ import { v_flex, h_flex } from "gpui-base";
 import { login, shown, bot } from "./timeline.js";
 import { assignArgs, reviewerArgs } from "./actions.js";
 import { tone, verdict, labelChip } from "./ui.js";
+import { openUrl } from "./menu.js";
 
 function section(title, t, body, action = null) {
   return v_flex().flex_none().gap(8).py(14).border_b(1).border_color(t.border)
@@ -31,6 +32,7 @@ export function sidebar(v, pr, t, cx) {
   const join = open && me && login(pr.author) !== me && !reviewing
     ? action("pr-join", v.busyWhere === "side" && busy ? v.busy : "Start review", (_e, cx) => !busy && v.run(assignArgs(true), cx, "side")) : null;
 
+  const linearKey = v.linearKey(pr), linear = linearKey ? { key: linearKey, issue: v.linear[linearKey] } : null;
   const reviewers = [...review.verdicts.map((x) => ({ name: x.login, state: x.state, stale: x.stale })), ...pending.map((name) => ({ name, state: "pending", stale: false }))];
   const people = new Map();
   for (const [name, url] of [[login(pr.author)], ...pr.comments.map((c) => [login(c.author)]), ...(v.timelines[v.id()] ?? []).filter((e) => e.login && e.kind !== "commits").map((e) => [e.login, e.avatar])])
@@ -48,6 +50,11 @@ export function sidebar(v, pr, t, cx) {
           div().flex_none().tooltip(`${shown(name)} ${text}`).child(v.glyph(glyph, 14, color)));
       }))
       : none("No reviews yet")))
+    .when(Boolean(linear), (e) => e.child(section("Linear", t, linear.issue
+      ? v_flex().id("pr-linear-issue").gap(4).cursor_pointer().on_click(() => openUrl(linear.issue.url))
+        .child(div().text_size(13).font_semibold().hover((s) => s.text_color(t.accent)).child(`${linear.key} ${linear.issue.title}`))
+        .child(h_flex().gap(6).items_center().text_size(12).text_color(t.muted).child(div().size(8).flex_none().rounded(4).bg(linear.issue.state.color)).child(linear.issue.state.name))
+      : none(linear.issue === null ? `${linear.key} \u2014 loading\u2026` : `${linear.key} \u2014 no Linear key or issue not found`))))
     .child(section("Labels", t, v.editing
       ? (!all ? none("Loading labels…") : v_flex().gap(1).children(all.map((l) => {
         const on = pr.labels.some((x) => x.name === l.name);

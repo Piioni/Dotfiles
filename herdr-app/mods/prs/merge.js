@@ -124,6 +124,16 @@ export function mergeBox(pr, ctx) {
 
 export const linearKey = (branch = "", title = "") => (/\b([A-Z][A-Z0-9]+-\d+)\b/i.exec(branch) ?? /\b([A-Z][A-Z0-9]+-\d+)\b/i.exec(title))?.[1].toUpperCase() ?? null;
 
+// The folder where `branch` is checked out, from `git worktree list --porcelain`; null when no worktree has it.
+/** @param {string} porcelain @param {string} branch */
+export function worktreeFor(porcelain, branch) {
+  for (const block of porcelain.split(/\n\s*\n/)) {
+    const lines = block.split("\n");
+    if (lines.includes(`branch refs/heads/${branch}`)) return lines.find((l) => l.startsWith("worktree "))?.slice(9) ?? null;
+  }
+  return null;
+}
+
 export const commandLine = (head, base) => `git fetch origin && git switch ${head} && git merge origin/${base}`;
 
 // How soon to look again, in ms: quickly while something is settling, rarely once it's over.

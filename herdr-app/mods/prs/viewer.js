@@ -1,12 +1,13 @@
 import { div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, TextView, TextareaState, Textarea } from "gpui-base";
-import { exec, theme, notify, setShared } from "herdr";
+import { exec, theme, notify, setShared, closeOverlay } from "herdr";
 import { icons, icon } from "./icons.js";
 import { avatar } from "./people.js";
 import { blocks, picture, failed, loadPicture } from "./pictures.js";
 import { timeline, checks, login, shown, bot, reactions, ago, assignWords } from "./timeline.js";
 import { reviewArgs, commentArgs, stateArgs, readyArgs, assignArgs, labelArgs, mergeArgs, updateBranchArgs, draftArgs, reviewerArgs, finishReviewArgs } from "./actions.js";
-import { mergeBox, reviewState, reviewAction, nextPoll } from "./merge.js";
+import { mergeBox, reviewState, reviewAction, nextPoll, linearKey, worktreeFor } from "./merge.js";
+import { fetchIssue } from "./linear.js";
 import { repoSettings, compare, conflictFiles } from "./mergeload.js";
 import { mergeView, mergeSkeleton } from "./mergebox.js";
 import { openUrl } from "./menu.js";
@@ -18,6 +19,7 @@ const DETAIL = "number,title,body,author,state,isDraft,labels,assignees,reviewRe
 // What can change under an open dialog; a change in updatedAt or the head commit reloads everything, the rest is patched in.
 const LIGHT = "state,isDraft,mergeable,mergeStateStatus,headRefOid,updatedAt,reviewDecision,assignees,statusCheckRollup";
 const COMPARE_EVERY = 120000;
+const TAB_KEYS = { 1: "conversation", 2: "commits", 3: "files", 4: "checks" };
 // Repository settings don't change while a dialog is open: one fetch per repo, shared by every dialog.
 const SETTINGS = {};
 
@@ -38,6 +40,7 @@ export class Viewer {
   constructor({ repo, number, on, title, me, cwd, seed }, overlay, cx) {
     this.repo = repo; this.number = number; this.on = on; this.me = me; this.overlay = overlay; this.cwd = cwd ?? null; this.seed = seed ?? (title ? { title } : null);
     this.history = []; this.cache = {}; this.timelines = {}; this.labels = {}; this.tab = "conversation"; this.mode = "write";
+    this.linear = {}; this.worktrees = {}; this.checksOpen = false; this.handle = cx.focus_handle();
     this.compares = {}; this.conflicts = {}; this.confirm = null; this.method = null; this.actedAt = 0; this.nextAt = 0;
     this.reply = TextareaState.new({ placeholder: "Use Markdown to format your comment" });
     this.reply.set_auto_grow(4, 14);
@@ -46,7 +49,13 @@ export class Viewer {
     cx.spawn(async (cx) => { await icons(); this.icons = true; cx.notify(); });
     this.load(cx);
     cx.timer.every(5000, (cx) => this.poll(cx));
+    // The list behind stops refreshing while this is open; a beat that stops (crash) expires by itself.
+    setShared("prs.dialog", Date.now());
+    cx.timer.every(3000, () => setShared("prs.dialog", Date.now()));
+    this.handle.focus();
   }
+
+  close() { setShared("prs.dialog", 0); }
 
   id() { return `${this.repo}#${this.number}`; }
 
@@ -72,8 +81,22 @@ export class Viewer {
         if (current()) { this.pr = pr; this.refreshedAt = Date.now(); this.nextAt = Date.now() + nextPoll(pr, { actedAt: this.actedAt }); }
       } catch (e) { if (current()) this.error = String(e?.message ?? e); }
       finally {
-        if (current()) { this.loading = false; cx.notify(); if (this.pr) { this.loadSettings(cx); this.loadMerge(cx); } }
+        if (current()) { this.loading = false; cx.notify(); if (this.pr) { this.loadSettings(cx); this.loadMerge(cx); this.loadLinear(cx); } }
       }
+    });
+  }
+
+  linearKey(pr = this.pr) { return pr ? linearKey(pr.headRefName, pr.title) : null; }
+
+  // The issue behind the branch key, once per key for the life of the dialog; no key file or a failure leaves a plain text chip.
+  loadLinear(cx) {
+    const key = this.linearKey();
+    if (!key || key in this.linear) return;
+    this.linear[key] = null;
+    cx.spawn(async (cx) => {
+      // null while loading, false when there's nothing to show
+      try { this.linear[key] = (await fetchIssue(key)) ?? false; } catch { this.linear[key] = false; }
+      cx.notify();
     });
   }
 
@@ -98,6 +121,11 @@ export class Viewer {
         let cmp = this.compares[id];
         if (!cmp || cmp.headOid !== pr.headRefOid || Date.now() - cmp.at > COMPARE_EVERY) { cmp = await compare(repo, pr, this.on); this.compares[id] = cmp; cx.notify(); }
         const key = `${cmp.baseSha}..${pr.headRefOid}`;
+        // A checkout of the head branch in the local clone, for "Open terminal in worktree".
+        if (pr.mergeable === "CONFLICTING" && this.cwd && !this.on && !pr.isCrossRepository && !(id in this.worktrees)) {
+          const r = await exec("git", ["worktree", "list", "--porcelain"], { cwd: this.cwd });
+          this.worktrees[id] = r.code === 0 ? worktreeFor(r.stdout, pr.headRefName) : null;
+        }
         if (pr.mergeable === "CONFLICTING" && !this.conflicts[key]) {
           this.conflicts[key] = "loading"; cx.notify();
           this.conflicts[key] = await conflictFiles(repo, pr, cmp, this.cwd, this.on);
@@ -132,15 +160,30 @@ export class Viewer {
   go(repo, number, cx) {
     if (repo === this.repo && number === this.number) return;
     this.history.push({ repo: this.repo, number: this.number, tab: this.tab });
-    this.repo = repo; this.number = number; this.seed = null; this.tab = "conversation"; this.editing = false; this.confirm = null; this.failed = null;
+    this.repo = repo; this.number = number; this.seed = null; this.tab = "conversation"; this.editing = false; this.checksOpen = false; this.confirm = null; this.failed = null;
     this.load(cx); cx.notify();
   }
 
   back(cx) {
     const prev = this.history.pop();
     if (!prev) return;
-    Object.assign(this, { repo: prev.repo, number: prev.number, tab: prev.tab, seed: null, confirm: null, failed: null });
+    Object.assign(this, { repo: prev.repo, number: prev.number, tab: prev.tab, seed: null, confirm: null, failed: null, checksOpen: false });
     this.load(cx); cx.notify();
+  }
+
+  // Shortcuts, only while the dialog itself holds the keyboard (not the comment box) and with no modifier held:
+  // 1-4 tabs, r refresh, o open on GitHub, y copy the branch name, backspace back, escape back or close.
+  key(e, cx) {
+    if (!this.handle.is_focused() || e.keystroke !== e.key) return;
+    const pr = this.pr, tab = TAB_KEYS[e.key];
+    if (tab) this.tab = tab;
+    else if (e.key === "r") this.load(cx, true);
+    else if (e.key === "o" && pr) openUrl(pr.url);
+    else if (e.key === "y" && pr) { cx.write_to_clipboard(pr.headRefName); notify({ title: "Branch copied", body: pr.headRefName, level: "success", timeout: 2500 }); }
+    else if (e.key === "backspace" && this.history.length) this.back(cx);
+    else if (e.key === "escape") { if (this.history.length) this.back(cx); else closeOverlay(this.overlay); }
+    else return;
+    cx.stop_propagation(); cx.notify();
   }
 
   link(url, cx) {
@@ -456,6 +499,7 @@ export class Viewer {
 
     const body = !pr ? null : this.tab === "commits" ? this.commitsTab(pr, t) : this.tab === "files" ? this.filesTab(pr, t) : this.tab === "checks" ? this.checksTab(pr, t) : null;
     return v_flex().id("pr").size_full().min_h(0).bg(t.background).text_color(t.foreground).text_size(14)
+      .track_focus(this.handle).on_key_down((e, cx) => this.key(e, cx))
       .on_size_change((size, cx) => { if (size.width !== this.width) { this.width = size.width; cx.notify(); } })
       .child(header(this, h, pr, t))
       .child(!pr ? v_flex().id("pr-loading").flex_1().min_h(0).overflow_y_scrollbar().px(32).py(20).gap(20)

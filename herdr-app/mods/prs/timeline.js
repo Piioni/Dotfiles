@@ -111,5 +111,16 @@ export function checks(/** @type {any[]} */ rollup = []) {
     if (["FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "STARTUP_FAILURE", "ACTION_REQUIRED"].includes(v)) return "failing";
     return "pending";
   };
-  return rollup.map((c) => ({ name: c.name ?? c.context ?? "check", workflow: c.workflowName ?? null, outcome: outcome(c), url: c.detailsUrl ?? c.targetUrl ?? null }));
+  return rollup.map((c) => ({ name: c.name ?? c.context ?? "check", workflow: c.workflowName ?? null, outcome: outcome(c), url: c.detailsUrl ?? c.targetUrl ?? null,
+    took: elapsed(c.startedAt, c.completedAt) }));
+}
+
+// "45s", "2m 5s", "1h 3m" between two ISO times; null when either is missing or the end isn't after the start (gh sends 0001-01-01 while a check runs).
+/** @param {string | undefined} start @param {string | undefined} end */
+export function elapsed(start, end) {
+  const s = Math.round((Date.parse(end) - Date.parse(start)) / 1000);
+  if (!(s >= 0)) return null;
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+  return `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`;
 }

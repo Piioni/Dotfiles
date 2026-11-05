@@ -43,6 +43,10 @@ async function reviewCommits(repo, raw, on) {
   } catch { /* keep the list usable without commits */ }
 }
 
+// The PR dialog beats while open (see Viewer): the list behind it has no reason to change.
+const dialogOpen = () => Date.now() - Number(shared("prs.dialog") ?? 0) < 8000;
+const idle = () => hidden() || dialogOpen();
+
 // Nothing to fetch while another panel (or none) is showing.
 function hidden() {
   const root = layout(), body = find(root, "panel-body");
@@ -87,7 +91,10 @@ export default class Prs extends View {
     this.state = STATES[remembered("state")] ? remembered("state") : "open";
     this.query = "";
     this.fold = new Set(remembered("fold", []));
-    this.lists = {};            // repo -> state -> { prs, at }
+    // repo -> state -> { prs, at }. Open lists are kept between runs so the panel shows them at once while the fresh ones load.
+    this.lists = remembered("lists", {});
+    // A pinned repo is shown whatever the focus: { repo, on }.
+    this.pinned = remembered("pinned", null);
     this.repos = remembered("repos", {}); this.logins = remembered("logins", {}); this.spaceRepos = remembered("spaces", {});
     this.repo = null; this.last = null;
     this.input = InputState.new({ placeholder: "Filter pull requests" });
@@ -96,16 +103,19 @@ export default class Prs extends View {
     this.input.on("blur", (_e, cx) => { this.typing = false; cx.notify(); });
     cx.spawn(async (cx) => { await icons(); this.icons = true; cx.notify(); });
     this.refresh(cx);
-    cx.timer.every(REFRESH, (cx) => { if (!hidden()) this.refresh(cx); });
-    // A change made in the dialog shows in the list within a few seconds.
+    cx.timer.every(REFRESH, (cx) => { if (!idle()) this.refresh(cx); });
+    // A change made in the dialog shows in the list within a few seconds of closing it.
     cx.timer.every(3000, (cx) => {
       const changed = shared("prs.changed")?.at;
-      const gone = hidden();
-      if (changed && changed !== this.changedAt) { this.changedAt = changed; if (!gone) this.refresh(cx); }
+      const gone = idle();
+      if (changed && changed !== this.changedAt) { this.changedAt = changed; this.stale = true; }
+      if (!gone && this.stale) { this.stale = false; this.refresh(cx); }
       else if (!gone && (this.gone || this.context() !== this.ctx)) this.refresh(cx, this.state, FRESH);
       this.gone = gone;
     });
   }
+
+  close() { this.viewer?.close(); }
 
   where() { return (this.last = location(this.last)); }
   context() { return JSON.stringify([this.where(), focused()?.space]); }
@@ -130,6 +140,7 @@ export default class Prs extends View {
 
   // Each space keeps the repo its own terminals were last in: a folder outside any repo keeps it.
   pick(found, space, on) {
+    if (this.pinned) { this.repo = this.pinned.repo; this.repoOn = this.pinned.on; return; }
     if (found) { this.spaceRepos[space] = { repo: found, on }; keep("spaces", this.spaceRepos); }
     const s = spaces().find((x) => x.id === space), tabs = new Set(s?.tabs.map((tab) => tab.id) ?? []);
     const guess = panes().map((p) => (tabs.has(p.tab) && p.cwd ? this.repos[JSON.stringify([p.cwd, s?.machine ?? null])] : null)).find(Boolean);
@@ -157,6 +168,7 @@ export default class Prs extends View {
         const raw = JSON.parse(r.stdout);
         if (state === "open") await reviewCommits(repo, raw, this.repoOn);
         (this.lists[repo] ??= {})[state] = { prs: raw.map((p) => normalize(p, state)), at: Date.now() };
+        keep("lists", Object.fromEntries(Object.entries(this.lists).map(([k, v]) => [k, v.open ? { open: v.open } : {}])));
         this.error = null;
       } catch (e) { this.error = String(e?.message ?? e); }
       finally {
@@ -164,6 +176,13 @@ export default class Prs extends View {
         if (this.again) { this.again = false; this.refresh(cx); }
       }
     });
+  }
+
+  // Pin the repo on screen, or release it to follow the focus again.
+  togglePin(cx) {
+    this.pinned = this.pinned ? null : { repo: this.repo, on: this.repoOn ?? null };
+    keep("pinned", this.pinned);
+    this.refresh(cx);
   }
 
   chipOf() { return CHIPS[this.scope][this.chip[this.scope]] ? this.chip[this.scope] : "all"; }
@@ -322,6 +341,10 @@ export default class Prs extends View {
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
           .child(div().size(12).flex_none().when(this.icons, (e) => e.child(svg(icon("search")).size(12).text_color(t.dim))))
           .child(Input.new(this.input).h_full().flex_1().min_w(0).text_size(12).text_color(t.foreground)))
+        .child(div().id("prs-pin").size(28).flex_none().flex().items_center().justify_center().rounded(7).border_1().border_color(this.pinned ? t.accent : t.border).text_color(this.pinned ? t.accent : t.muted)
+          .cursor_pointer().hover((s) => s.bg(t.hover)).on_click((_e, cx) => this.togglePin(cx))
+          .tooltip(this.pinned ? `Unpin ${this.repo}` : `Pin ${this.repo}: keep showing it when the focus moves elsewhere`)
+          .child(div().size(12).when(this.icons, (e) => e.child(svg(icon("pin")).size(12)))))
         .child(div().id("prs-refresh").size(28).flex_none().flex().items_center().justify_center().rounded(7).border_1().border_color(t.border).text_color(t.muted)
           .cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click((_e, cx) => this.refresh(cx))
           .tooltip(`${this.repo}${entry ? ` · updated ${age(new Date(entry.at).toISOString())} ago` : ""}`)

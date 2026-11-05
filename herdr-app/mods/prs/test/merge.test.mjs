@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseMergeTree, bothSides, mergeMethods, reviewState, reviewAction, mergeBox, linearKey, commandLine, nextPoll } from "../merge.js";
+import { parseMergeTree, bothSides, mergeMethods, reviewState, reviewAction, mergeBox, linearKey, commandLine, nextPoll, worktreeFor } from "../merge.js";
 
 const SIPOS = { mergeCommitAllowed: true, squashMergeAllowed: false, rebaseMergeAllowed: false, deleteBranchOnMerge: true, viewerDefaultMergeMethod: "MERGE", viewerPermission: "WRITE" };
 const pr = (over = {}) => ({ state: "OPEN", isDraft: false, mergeable: "MERGEABLE", mergeStateStatus: "CLEAN", reviewDecision: "", headRefOid: "h1", baseRefName: "develop",
@@ -166,6 +166,14 @@ test("linear key comes from the branch first, then the title", () => {
   assert.equal(linearKey("feat/POS-941-x", "other POS-1"), "POS-941");
   assert.equal(linearKey("fix/thing", "Fix pos-12 crash"), "POS-12");
   assert.equal(linearKey("main", "no key"), null);
+});
+
+test("worktree of a branch from git worktree list --porcelain", () => {
+  const out = "worktree /r/app\nHEAD aaa\nbranch refs/heads/develop\n\nworktree /r/app.feat\nHEAD bbb\nbranch refs/heads/feat/POS-1-x\n\nworktree /r/detached\nHEAD ccc\ndetached\n";
+  assert.equal(worktreeFor(out, "feat/POS-1-x"), "/r/app.feat");
+  assert.equal(worktreeFor(out, "develop"), "/r/app");
+  assert.equal(worktreeFor(out, "feat/POS-1"), null);
+  assert.equal(worktreeFor("", "develop"), null);
 });
 
 test("command line instructions", () => assert.equal(commandLine("feat/x", "develop"), "git fetch origin && git switch feat/x && git merge origin/develop"));
