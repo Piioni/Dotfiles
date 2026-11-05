@@ -15,16 +15,17 @@
 !/themes/catppuccin.json
 
 /mods/*
-!/mods/issues/
 !/mods/linear/
 !/mods/prs/
 !/mods/relevo/
 !/mods/relevo-agents/
-!/mods/relevo-changes/
-!/mods/relevo-files/
-!/mods/relevo-tabs/
-!/mods/space-folders/
+!/mods/piioni-changes/
+!/mods/piioni-files/
+!/mods/piioni-tabs/
 
 # Written by gpui-shell into every mod folder.
 gpui-kit.d.ts
 jsconfig.json
+
+# Python bytecode from the relevo hook and its test.
+__pycache__/

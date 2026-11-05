@@ -1,8 +1,8 @@
 // Relevo Settings: provider accounts, named launch profiles and slash commands.
 
 export const ACCOUNTS = [
-  { key: "personal", label: "Claude", claudeDir: ".claude", bg: "#c3e88d", fg: "#1e2030" },
-  { key: "work", label: "Sipos", claudeDir: ".claude-sipos", bg: "#82aaff", fg: "#1e2030" },
+  { key: "personal", label: "Claude", claudeDir: ".claude", bg: "#AD5DBD", fg: "#ffffff" },
+  { key: "work", label: "Sipos", claudeDir: ".claude-sipos", bg: "#4A8BE8", fg: "#ffffff" },
 ];
 
 export const CODEX = { key: "codex", label: "Codex", bg: "#4fd6be", fg: "#1e2030" };

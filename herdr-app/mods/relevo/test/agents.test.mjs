@@ -73,8 +73,9 @@ const PERSONAL = { accounts: { personal: { label: "Personal", bg: "#000", fg: "#
 test("a local agent shows a Move button under the pointer that opens the handoff, without focusing it", async () => {
   fake.stored["relevo.setup"] = PERSONAL;
   const { mod, ui, cx } = await open([agent("t1")], [{ address: "t1", state: "live", labels: { "agent.account": "personal" } }]);
-  assert.equal(find(ui(), "move-t1"), null, "at rest it is only a dot");
+  assert.equal(find(ui(), "move-t1"), null, "at rest it is only the initial");
   assert.match(find(ui(), "acct-t1").tip, /^Personal account/);
+  assert.equal(text(find(ui(), "acct-t1")), "P");
   mod.hovered = "t1";
   const button = find(ui(), "move-t1");
   assert.match(button.tip, /Continue with another account/);
@@ -84,16 +85,25 @@ test("a local agent shows a Move button under the pointer that opens the handoff
   assert.equal(stopped, true);
 });
 
-test("an agent on another machine, or a ticket with no account, never gets a Move button", async () => {
+test("an agent on another machine, or one with no account, never gets a Move button", async () => {
   fake.stored["relevo.setup"] = PERSONAL;
-  const remote = await open([agent("box/t1")], [{ address: "box/t1", state: "live", labels: { "agent.account": "personal", "agent.jira": "AB-1" } }]);
+  const remote = await open([agent("box/t1")], [{ address: "box/t1", state: "live", labels: { "agent.account": "personal" } }]);
   remote.mod.hovered = "box/t1";
   assert.equal(find(remote.ui(), "move-box/t1"), null);
   assert.equal(find(remote.ui(), "acct-box/t1").handlers.on_click, undefined);
   fake.stored["relevo.setup"] = { accounts: {} };
-  const ticket = await open([agent("t1")], [{ address: "t1", state: "live", labels: { "agent.jira": "AB-1" } }]);
-  ticket.mod.hovered = "t1";
-  assert.equal(find(ticket.ui(), "move-t1"), null);
+  const bare = await open([agent("t1")], [{ address: "t1", state: "live", labels: {} }]);
+  bare.mod.hovered = "t1";
+  assert.equal(find(bare.ui(), "move-t1"), null);
+});
+
+test("background work shows as a capsule with its count and the full text in the tooltip", async () => {
+  const { ui } = await open([agent("t1")], [{ address: "t1", state: "live", labels: { "agent.bg": "⧗ 2 shells" } }]);
+  const tag = find(ui(), "bg-t1");
+  assert.equal(text(tag), "2");
+  assert.match(tag.tip, /Running in the background: 2 shells/);
+  const none = await open([agent("t1")], [{ address: "t1", state: "live", labels: {} }]);
+  assert.equal(find(none.ui(), "bg-t1"), null);
 });
 
 async function accounts() {

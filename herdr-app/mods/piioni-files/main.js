@@ -170,7 +170,7 @@ export class Files {
   back(cx) { if (this.editor?.dirty) this.leaving = true; else this.show(null); cx.notify(); }
   /** @param {AsyncContext} cx */
   follow(cx) {
-    /** @type {FileEvent | undefined} */ const e = /** @type {FileEvent | undefined} */ (shared("relevo-files.event"));
+    /** @type {FileEvent | undefined} */ const e = /** @type {FileEvent | undefined} */ (shared("piioni-files.event"));
     if (!e || e.n === this.seen) return;
     const first = this.seen === undefined; this.seen = e.n;
     if (first || e.root !== this.root) return;
@@ -196,7 +196,7 @@ export class Files {
       out.push(h_flex().id(`file-${path}`).h(30).flex_none().pl(8 + depth * 18).pr(8).gap(8).items_center().rounded(7).cursor_pointer().hover(s => s.bg(t.hover))
         .on_click((e, cx) => entry.dir ? this.toggle(path, cx) : this.openInHelix(path, e.modifiers.shift, cx))
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openMenu({ root: this.root, path, dir: entry.dir, local: !this.on }); })
-        .child(entry.dir ? svg(`mods/relevo-files/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.dim) : div().w(12).flex_none())
+        .child(entry.dir ? svg(`mods/piioni-files/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.dim) : div().w(12).flex_none())
         .child(image(iconFor(entry.name, entry.dir, open)).size(18).flex_none())
         .child(div().flex_1().min_w(0).truncate().child(entry.name))
         .when(Boolean(mark), el => el.child(div().text_size(11).text_color(mark === "A" ? t.ansi2 : mark === "D" || mark === "U" ? t.ansi1 : t.blocked).child(mark))));

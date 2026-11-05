@@ -10,12 +10,12 @@ import { helixTab, helixPopup } from "./hx.js";
 /** @typedef {Record<string, `#${string}`>} ThemeColors */
 /** @param {Record<string, unknown>} event */
 export function announce(event) {
-  const previous = /** @type {{n?: number} | undefined} */ (shared("relevo-files.event"));
-  setShared("relevo-files.event", { ...event, n: (previous?.n ?? 0) + 1 });
+  const previous = /** @type {{n?: number} | undefined} */ (shared("piioni-files.event"));
+  setShared("piioni-files.event", { ...event, n: (previous?.n ?? 0) + 1 });
 }
 /** @param {Record<string, unknown>} target */
 export function openMenu(target) {
-  openOverlay({ mod: "relevo-files", kind: "popup", width: 210, props: { role: "menu", ...target } });
+  openOverlay({ mod: "piioni-files", kind: "popup", width: 210, props: { role: "menu", ...target } });
 }
 /** @param {string} path */
 const exists = async (path) => (await exec("test", ["-e", path])).code === 0 || (await exec("test", ["-L", path])).code === 0;
@@ -44,7 +44,7 @@ export class FileMenu {
     const item = (id, label, act) => div().id(`fm-${id}`).h(28).px(10).flex().items_center().rounded(6).cursor_pointer()
       .hover((s) => s.bg(t.hover)).on_click((_e, cx) => { if (act(cx) !== true) closeOverlay(overlay); }).child(label);
     /** @param {string} mode */
-    const ask = (mode) => () => openOverlay({ mod: "relevo-files", kind: "dialog", width: 380, props: { role: "name", mode, root, path, dir } });
+    const ask = (mode) => () => openOverlay({ mod: "piioni-files", kind: "dialog", width: 380, props: { role: "name", mode, root, path, dir } });
     const sep = () => div().h(1).my(4).mx(6).bg(t.border);
     return v_flex().id("file-menu").w_full().p(4).bg(t.popover ?? t.surface).text_color(t.foreground).text_size(12.5)
       .when(!dir && !isRoot, (el) => el.child(item("open-tab", "Open in tab", () => helixTab(root, abs)))
@@ -52,7 +52,7 @@ export class FileMenu {
         .child(sep()))
       .when(local, (el) => el.child(item("new-file", "New file", ask("new-file"))).child(item("new-folder", "New folder", ask("new-folder")))
         .when(!isRoot, (el) => el.child(item("rename", "Rename", ask("rename")))
-          .child(item("trash", "Move to Trash", () => openOverlay({ mod: "relevo-files", kind: "dialog", width: 380, props: { role: "trash-confirm", root, path, dir } }))))
+          .child(item("trash", "Move to Trash", () => openOverlay({ mod: "piioni-files", kind: "dialog", width: 380, props: { role: "trash-confirm", root, path, dir } }))))
         .child(sep()).child(item("reveal", "Reveal in Folder", () => {
           const [cmd, args] = revealArgs(window().platform, abs);
           return exec(cmd, args);

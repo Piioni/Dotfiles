@@ -28,9 +28,15 @@ function toggleSidebar() {
 
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
 
-function lead(tab, all = panes()) {
-  const mine = all.filter(p => p.tab === tab.id && p.terminal);
-  return mine.find(p => p.program?.agent) ?? mine.find(p => p.focused) ?? mine[0];
+function leadPanes(all) {
+  const leads = new Map();
+  for (const p of all) {
+    if (!p.terminal) continue;
+    const current = leads.get(p.tab);
+    // First agent, else first focused terminal, else first terminal in the tab.
+    if (!current || (!current.program?.agent && (p.program?.agent || (!current.focused && p.focused)))) leads.set(p.tab, p);
+  }
+  return leads;
 }
 
 function title(tab, l) {
@@ -68,8 +74,7 @@ function icon(p, size, color) {
   return p.tint ? svg(p.icon).size(size).flex_none().text_color(color) : image(p.icon).w(size).h(size).flex_none();
 }
 
-// Account chip from the Claude hook's labels.
-// The accounts come from the Relevo mod's config, through shared "relevo.setup".
+// The accounts and launchers come from the Relevo mod's config, through shared "relevo.setup".
 /** @typedef {{key:string,label:string,app:string,profile:string}} LauncherOption */
 /** @typedef {{accounts:Record<string,any>,launchers?:LauncherOption[]}} Setup */
 const setup = () => /** @type {Setup} */ (shared("relevo.setup") ?? { accounts: {} });
@@ -83,34 +88,38 @@ function launcherIcon(app, t) {
     .child(app === "pi" ? svg("icons/pi.svg").size(14).text_color(t.foreground) : image(`icons/${app === "codex" ? "codex" : "claude"}.svg`).size(16));
 }
 
-// Background shells or wakeups the Claude hook reports (agent.bg); full text in the tooltip.
+// Background shells or wakeups the Claude hook reports (agent.bg): a pulsing clock capsule with the count;
+// the full text is in the tooltip.
 function backgroundTag(t, a, labels) {
   const bg = labels["agent.bg"];
   if (!bg) return null;
-  const glyph = [...bg][0], n = /\d+/.exec(bg)?.[0] ?? "";
-  return div().id(`bg-${a.address}`).flex_none().text_size(10.5).text_color(t.working)
+  const glyph = [...bg][0], n = /\d+/.exec(bg)?.[0];
+  return h_flex().id(`bg-${a.address}`).flex_none().h(16).px(6).gap(3).items_center().rounded(8)
+    .bg(t.working + "26").text_color(t.working).text_size(10.5).font_semibold()
     .tooltip(`Running in the background: ${bg.slice(glyph.length).trim()}. You'll be told when it finishes.`)
-    .child(`${glyph}${n}`);
+    .child(svg("mods/workspace-chrome/clock.svg").size(10).flex_none().loop("opacity", { from: 0.45, to: 1, period: 1400 }))
+    .when(Boolean(n), (el) => el.child(n));
 }
 
-// At rest a dot in the account's color; under the pointer, a Move button that continues the agent on another account.
+// The account's initial in its color; under the pointer, a Move button that continues the agent on another account.
 function accountTag(t, a, labels, hovered) {
-  const accounts = setup().accounts, acc = accounts[labels["agent.account"]], jira = labels["agent.jira"];
-  if (!acc && !jira) return null;
-  const tip = [acc && `${acc.label} account`, jira].filter(Boolean).join(" · ");
+  const acc = setup().accounts[labels["agent.account"]];
+  if (!acc) return null;
   // Local agents only: a handoff reads and starts things on this computer.
-  const move = Boolean(acc) && !a.address.includes("/") && hovered;
-  return h_flex().id(`acct-${a.address}`).flex_none().gap(6).items_center().tooltip(tip)
-    .when(Boolean(jira), (el) => el.child(div().text_size(10.5).text_color(t.dim).child(jira)))
-    .when(Boolean(acc) && !move, (el) => el.child(div().size(7).rounded(4).bg(acc.bg)))
-    .when(move, (el) => el.child(div().id(`move-${a.address}`).h(18).px(8).rounded(5).bg(t.accent + "26").text_color(t.accent)
-      .text_size(10.5).font_semibold().flex().items_center().cursor_pointer()
-      .hover((s) => s.bg(t.accent + "40")).tooltip(`${acc.label} account · Continue with another account`)
-      .on_click((_e, cx) => {
-        cx.stop_propagation();
-        run(`relevo.handoff-agent-${a.address}`);
-      })
-      .child("Move")));
+  const move = !a.address.includes("/") && hovered;
+  if (!move) {
+    return h_flex().id(`acct-${a.address}`).size(17).flex_none().items_center().justify_center().rounded(9)
+      .bg(acc.bg).text_color(acc.fg).text_size(10).line_height(10).font_bold().tooltip(`${acc.label} account`)
+      .child([...acc.label][0].toUpperCase());
+  }
+  return div().id(`move-${a.address}`).h(18).px(8).rounded(5).bg(t.accent + "26").text_color(t.accent)
+    .text_size(10.5).font_semibold().flex().items_center().flex_none().cursor_pointer()
+    .hover((s) => s.bg(t.accent + "40")).tooltip(`${acc.label} account · Continue with another account`)
+    .on_click((_e, cx) => {
+      cx.stop_propagation();
+      run(`relevo.handoff-agent-${a.address}`);
+    })
+    .child("Move");
 }
 
 export default class Agents extends View {
@@ -304,6 +313,7 @@ export default class Agents extends View {
     let list = agents();
     this.listed = new Map(list.map((a) => [a.address, a.status]));
     const all = terminals();
+    this.migratePins(all);
     const shown = focused()?.agent;
     const now = Date.now();
     this.track(list, now);
@@ -312,7 +322,6 @@ export default class Agents extends View {
     const urgency = new Map(list.map((a) => [a.address, Math.max(this.rank(a), ...this.tree(all, a.address).map((s) => RANK[kidStatus(s.t, this.listed)] ?? 0))]));
     const rankOf = (a) => urgency.get(a.address);
     if (byPriority) list = [...list].sort((x, y) => rankOf(y) - rankOf(x) || this.since(y) - this.since(x) || y.seq - x.seq);
-    this.migratePins(all);
     const pinned = list.filter((a) => a.pinned);
     const rest = list.filter((a) => !a.pinned);
     list = [...pinned, ...rest];
@@ -354,11 +363,11 @@ export default class Agents extends View {
     // A row reads "space \u00b7 detail": the detail is a tab someone named or the
     // agent's own title, never an automatic tab number unless two rows would
     // otherwise read the same.
-    const tabs = spaces().flatMap(s => s.tabs);
-    const label = (a) => {
-      const tab = tabs.find(tab => tab.id === a.tab);
-      return tab ? title(tab, lead(tab)) : a.title || a.program?.name || "";
-    };
+    // Read the pane snapshot once: every host read copies the whole list into JS.
+    const leads = leadPanes(panes());
+    const tabLabels = new Map(spaces().flatMap(s => s.tabs).map(tab => [tab.id, title(tab, leads.get(tab.id))]));
+    const labels = new Map(list.map(a => [a.address, tabLabels.get(a.tab) ?? (a.title || a.program?.name || "")]));
+    const label = (a) => labels.get(a.address);
     const detail = new Map(list.map(a => [a.address, /^\d+$/.test(label(a)) ? null : label(a)]));
     const seen = {};
     for (const a of list) { const k = `${a.space_name}\u0000${detail.get(a.address) ?? ""}`; seen[k] = (seen[k] ?? 0) + 1; }
@@ -366,11 +375,11 @@ export default class Agents extends View {
       if (detail.get(a.address) == null && seen[`${a.space_name}\u0000`] > 1) detail.set(a.address, label(a));
     }
 
-    const labels = new Map(terminals().map((k) => [k.address, k.labels ?? {}]));
+    const termLabels = new Map(all.map((k) => [k.address, k.labels ?? {}]));
     const row = (a, i, subs = []) => {
       const pic = icon(a.program, 16, t.foreground);
-      const tag = accountTag(t, a, labels.get(a.address) ?? {}, this.hovered === a.address);
-      const bg = backgroundTag(t, a, labels.get(a.address) ?? {});
+      const tag = accountTag(t, a, termLabels.get(a.address) ?? {}, this.hovered === a.address);
+      const bg = backgroundTag(t, a, termLabels.get(a.address) ?? {});
       const more = detail.get(a.address);
       // An agent on another machine (`vps/t7`) says which.
       const machine = a.address.includes("/") ? a.address.split("/")[0] : null;
@@ -442,7 +451,7 @@ export default class Agents extends View {
         .when(Boolean(tag), el => el.child(tag))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(this.hovered === a.address, el => el.child(pin))
-        .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))
+        .when(this.hovered !== a.address && Boolean(when), el => el.child(div().w(28).flex_none().text_right().text_size(11).text_color(t.dim).child(duration(now - when))))
         .child(this.status(t, a, byPriority && !isPinned));
     };
 

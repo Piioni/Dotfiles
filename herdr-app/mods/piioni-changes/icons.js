@@ -1,6 +1,7 @@
-// Catppuccin Mocha icons (MIT, github.com/catppuccin/vscode-icons) in mods/relevo-files/icons/.
-const DIR = "mods/relevo-files/icons";
+// Catppuccin Mocha icons (MIT, github.com/catppuccin/vscode-icons) in mods/piioni-files/icons/.
+const DIR = "mods/piioni-files/icons";
 
+/** @type {Record<string, string>} */
 const BY_NAME = {
   "package.json": "package-json", "package-lock.json": "npm-lock", "pnpm-lock.yaml": "pnpm-lock", "yarn.lock": "yarn-lock",
   "bun.lock": "bun-lock", "bun.lockb": "bun-lock", "cargo.toml": "cargo", "cargo.lock": "cargo-lock", "go.mod": "go-mod",
@@ -20,6 +21,7 @@ const BY_PREFIX = [
   ["prettier.config", "prettier"], ["postcss.config", "postcss"], ["biome.json", "biome"],
 ];
 
+/** @type {Record<string, string>} */
 const BY_EXT = {
   js: "javascript", mjs: "javascript", cjs: "javascript", jsx: "javascript-react", ts: "typescript", mts: "typescript",
   cts: "typescript", tsx: "typescript-react", json: "json", jsonc: "json", json5: "json", md: "markdown", mdx: "markdown-mdx",
@@ -38,6 +40,7 @@ const BY_EXT = {
   exe: "exe", key: "key", pem: "certificate", crt: "certificate", env_example: "env",
 };
 
+/** @type {Record<string, string>} */
 const FOLDERS = {
   src: "src", components: "components", lib: "lib", utils: "utils", util: "utils", test: "tests", tests: "tests",
   __tests__: "tests", spec: "tests", docs: "docs", doc: "docs", config: "config", configs: "config", scripts: "scripts",
@@ -53,9 +56,11 @@ const FOLDERS = {
   messages: "messages", queue: "queue", download: "download", downloads: "download", upload: "upload",
 };
 
+/** @param {string} name */
 const icon = (name) => `${DIR}/${name}.svg`;
 
-/** Path of the icon for a file or folder entry (folders: `open` picks the open variant). */
+/** Path of the icon for a file or folder entry (folders: `open` picks the open variant).
+ * @param {string} name @param {boolean} [dir] @param {boolean} [open] */
 export function iconFor(name, dir, open) {
   const lower = name.toLowerCase();
   if (dir) {
