@@ -1,40 +1,28 @@
 import { div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, TextView, TextareaState, Textarea } from "gpui-base";
-import { exec, theme, closeOverlay, notify, setShared } from "herdr";
+import { exec, theme, notify, setShared } from "herdr";
 import { icons, icon } from "./icons.js";
 import { avatar } from "./people.js";
 import { blocks, picture, failed, loadPicture } from "./pictures.js";
-import { timeline, checks, login, shown, bot, reactions } from "./timeline.js";
-import { reviewArgs, commentArgs, stateArgs, readyArgs, assignArgs, labelArgs } from "./actions.js";
+import { timeline, checks, login, shown, bot, reactions, ago, assignWords } from "./timeline.js";
+import { reviewArgs, commentArgs, stateArgs, readyArgs, assignArgs, labelArgs, mergeArgs, updateBranchArgs, draftArgs, reviewerArgs, finishReviewArgs } from "./actions.js";
+import { mergeBox, reviewState, reviewAction, nextPoll } from "./merge.js";
+import { repoSettings, compare, conflictFiles } from "./mergeload.js";
+import { mergeView, mergeSkeleton } from "./mergebox.js";
+import { openUrl } from "./menu.js";
+import { tone, verdict, labelChip } from "./ui.js";
+import { header, bar } from "./header.js";
+import { sidebar } from "./sidebar.js";
 
-const DETAIL = "number,title,body,author,state,isDraft,labels,assignees,reviewRequests,latestReviews,reviewDecision,comments,commits,files,statusCheckRollup,headRefName,baseRefName,additions,deletions,changedFiles,createdAt,updatedAt,mergedAt,mergedBy,mergeable,url,milestone,reactionGroups,closingIssuesReferences";
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DETAIL = "number,title,body,author,state,isDraft,labels,assignees,reviewRequests,latestReviews,reviewDecision,comments,commits,files,statusCheckRollup,headRefName,baseRefName,additions,deletions,changedFiles,createdAt,updatedAt,mergedAt,mergedBy,mergeable,mergeStateStatus,headRefOid,isCrossRepository,headRepositoryOwner,url,milestone,reactionGroups,closingIssuesReferences";
+// What can change under an open dialog; a change in updatedAt or the head commit reloads everything, the rest is patched in.
+const LIGHT = "state,isDraft,mergeable,mergeStateStatus,headRefOid,updatedAt,reviewDecision,assignees,statusCheckRollup";
+const COMPARE_EVERY = 120000;
+// Repository settings don't change while a dialog is open: one fetch per repo, shared by every dialog.
+const SETTINGS = {};
+
 const ISSUE_URL = /^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/(?:issues|pull)\/(\d+)(?:[/?#].*)?$/;
-// GitHub's own state colors, the same in every theme so they read as GitHub's.
-const GITHUB = { open: "#238636", done: "#8957e5", closed: "#da3633", draft: "#6e7681", link: "#4493f8", warn: "#d29922" };
 const ROLES = { OWNER: "Owner", MEMBER: "Member", COLLABORATOR: "Collaborator", CONTRIBUTOR: "Contributor" };
-const REVIEWS = {
-  approved: ["approved these changes", "check", GITHUB.open], changes_requested: ["requested changes", "x", GITHUB.closed],
-  commented: ["reviewed", "comment", null], dismissed: ["had a review dismissed", "x", GITHUB.draft],
-  APPROVED: ["approved", "check", GITHUB.open], CHANGES_REQUESTED: ["requested changes", "x", GITHUB.closed],
-  COMMENTED: ["commented", "comment", null], DISMISSED: ["dismissed", "x", GITHUB.draft], PENDING: ["pending", "dot", GITHUB.warn],
-};
-const TABS = [["conversation", "Conversation"], ["commits", "Commits"], ["files", "Files changed"], ["checks", "Checks"]];
-
-// As GitHub says it: "3h ago" this month, "on Sep 21" before that.
-export function ago(iso) {
-  const s = (Date.now() - Date.parse(iso)) / 1000;
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.round(s / 60)}m ago`;
-  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
-  if (s < 86400 * 30) return `${Math.round(s / 86400)}d ago`;
-  const d = new Date(iso), year = d.getFullYear() === new Date().getFullYear() ? "" : `, ${d.getFullYear()}`;
-  return `on ${MONTHS[d.getMonth()]} ${d.getDate()}${year}`;
-}
-
-export function openUrl(url) {
-  exec("sh", ["-c", 'xdg-open "$1" >/dev/null 2>&1 &', "sh", url]).catch(() => exec("open", [url]).catch(() => null));
-}
 
 // #123 and owner/repo#123 outside code become links, as on GitHub.
 function linkify(markdown, repo) {
@@ -43,33 +31,30 @@ function linkify(markdown, repo) {
       `${pre}[${other ?? ""}#${number}](https://github.com/${other ?? repo}/issues/${number})`)).join("");
 }
 
-// A label as GitHub tints it: its color faint behind, its color as text unless too dark to read.
-function labelChip(l, t) {
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(l.color.slice(i, i + 2), 16));
-  const light = (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.35;
-  return div().h(20).px(7).flex_none().flex().items_center().rounded(10).border_1().border_color(`#${l.color}66`).bg(`#${l.color}2e`)
-    .text_size(12).font_semibold().text_color(light ? `#${l.color}` : t.foreground).child(l.name);
-}
-
-// One pull request in a dialog: { repo, number, on, title?, me? } from the panel. The summary and the
-// timeline load behind the title; links to other issues and pull requests open here, with Back to return.
+// One pull request in a dialog: { repo, number, on, me?, cwd?, seed? } from the panel. seed is what the list knew (title, author,
+// branches, size) so the header draws at once; cwd is a clone of the repo, for finding the conflicting files.
+// The summary and the timeline load behind it; links to other issues and pull requests open here, with Back to return.
 export class Viewer {
-  constructor({ repo, number, on, title, me }, overlay, cx) {
-    this.repo = repo; this.number = number; this.on = on; this.me = me; this.overlay = overlay; this.seed = title ?? null;
+  constructor({ repo, number, on, title, me, cwd, seed }, overlay, cx) {
+    this.repo = repo; this.number = number; this.on = on; this.me = me; this.overlay = overlay; this.cwd = cwd ?? null; this.seed = seed ?? (title ? { title } : null);
     this.history = []; this.cache = {}; this.timelines = {}; this.labels = {}; this.tab = "conversation"; this.mode = "write";
+    this.compares = {}; this.conflicts = {}; this.confirm = null; this.method = null; this.actedAt = 0; this.nextAt = 0;
     this.reply = TextareaState.new({ placeholder: "Use Markdown to format your comment" });
     this.reply.set_auto_grow(4, 14);
     this.reply.on("change", (_e, cx) => { const has = Boolean(this.reply.value().trim()); if (has !== this.replying) { this.replying = has; cx.notify(); } });
     this.reply.on("submit", (e, cx) => { if (e.secondary) this.comment(cx); });
     cx.spawn(async (cx) => { await icons(); this.icons = true; cx.notify(); });
     this.load(cx);
+    cx.timer.every(5000, (cx) => this.poll(cx));
   }
 
   id() { return `${this.repo}#${this.number}`; }
 
-  load(cx) {
+  // fresh: also look again at how far behind the base it is, whatever was cached.
+  load(cx, fresh = false) {
     const repo = this.repo, number = this.number, id = this.id(), current = () => this.id() === id;
     this.pr = this.cache[id] ?? null; this.error = null; this.loading = true;
+    if (fresh) delete this.compares[id];
     const gh = async (args) => {
       const r = await exec("gh", args, { on: this.on });
       if (r.code !== 0) throw new Error((r.stderr || r.stdout).trim());
@@ -84,23 +69,77 @@ export class Viewer {
         ]);
         this.cache[id] = pr;
         if (pages) this.timelines[id] = timeline(pages.flat(), inline.flat());
-        if (current()) this.pr = pr;
+        if (current()) { this.pr = pr; this.refreshedAt = Date.now(); this.nextAt = Date.now() + nextPoll(pr, { actedAt: this.actedAt }); }
       } catch (e) { if (current()) this.error = String(e?.message ?? e); }
-      finally { if (current()) { this.loading = false; cx.notify(); } }
+      finally {
+        if (current()) { this.loading = false; cx.notify(); if (this.pr) { this.loadSettings(cx); this.loadMerge(cx); } }
+      }
+    });
+  }
+
+  settingsKey() { return `${this.on ?? ""}|${this.repo}`; }
+
+  loadSettings(cx) {
+    const key = this.settingsKey(), repo = this.repo;
+    if (SETTINGS[key] || this.fetching === key) return;
+    this.fetching = key;
+    cx.spawn(async (cx) => {
+      try { SETTINGS[key] = await repoSettings(repo, this.on); } catch { /* retried with the next load */ }
+      finally { this.fetching = null; cx.notify(); }
+    });
+  }
+
+  // How far behind the base it is, and for a conflicting one which files; never blocks the rest of the dialog.
+  loadMerge(cx) {
+    const pr = this.pr, id = this.id(), repo = this.repo;
+    if (pr?.state !== "OPEN") return;
+    cx.spawn(async (cx) => {
+      try {
+        let cmp = this.compares[id];
+        if (!cmp || cmp.headOid !== pr.headRefOid || Date.now() - cmp.at > COMPARE_EVERY) { cmp = await compare(repo, pr, this.on); this.compares[id] = cmp; cx.notify(); }
+        const key = `${cmp.baseSha}..${pr.headRefOid}`;
+        if (pr.mergeable === "CONFLICTING" && !this.conflicts[key]) {
+          this.conflicts[key] = "loading"; cx.notify();
+          this.conflicts[key] = await conflictFiles(repo, pr, cmp, this.cwd, this.on);
+        }
+      } catch { /* the box simply stays without the numbers */ }
+      finally { cx.notify(); }
+    });
+  }
+
+  // Looks again when it's due (nextPoll): a light query, and everything again only if the pull request really changed.
+  poll(cx) {
+    const pr = this.pr, id = this.id();
+    if (!pr) return;
+    cx.notify();
+    if (this.loading || this.busy || Date.now() < this.nextAt) return;
+    this.nextAt = Date.now() + nextPoll(pr, { actedAt: this.actedAt });
+    cx.spawn(async (cx) => {
+      try {
+        const r = await exec("gh", ["pr", "view", String(this.number), "-R", this.repo, "--json", LIGHT], { on: this.on });
+        if (r.code !== 0 || this.id() !== id || this.pr !== pr) return;
+        const next = JSON.parse(r.stdout);
+        if (next.updatedAt !== pr.updatedAt || next.headRefOid !== pr.headRefOid) { this.load(cx); return; }
+        const merge = next.mergeable !== pr.mergeable || next.mergeStateStatus !== pr.mergeStateStatus;
+        Object.assign(pr, next);
+        this.refreshedAt = Date.now(); this.nextAt = Date.now() + nextPoll(pr, { actedAt: this.actedAt });
+        if (merge) this.loadMerge(cx);
+      } catch { /* the next tick tries again */ }
+      finally { cx.notify(); }
     });
   }
 
   go(repo, number, cx) {
     if (repo === this.repo && number === this.number) return;
     this.history.push({ repo: this.repo, number: this.number, tab: this.tab });
-    this.repo = repo; this.number = number; this.seed = null; this.tab = "conversation"; this.editing = false;
+    this.repo = repo; this.number = number; this.seed = null; this.tab = "conversation"; this.editing = false; this.confirm = null; this.failed = null;
     this.load(cx); cx.notify();
   }
 
   back(cx) {
     const prev = this.history.pop();
     if (!prev) return;
-    Object.assign(this, { repo: prev.repo, number: prev.number, tab: prev.tab, seed: null });
+    Object.assign(this, { repo: prev.repo, number: prev.number, tab: prev.tab, seed: null, confirm: null, failed: null });
     this.load(cx); cx.notify();
   }
 
@@ -111,39 +150,66 @@ export class Viewer {
 
   // ---- changes: each runs gh on this pull request, reloads it and tells the panel ----
 
-  run(action, cx, after) {
-    if (!action || this.busy) return;
-    const { label, args } = action;
+  // One action or a list, in order, stopping at the first that fails. `where` names the button that launched it:
+  // a failure shows next to that button (bar = the top bar), and its busy text shows on it. `after` runs once the first action went through.
+  run(actions, cx, where = "bar", after = null) {
+    const list = Array.isArray(actions) ? actions : actions ? [actions] : [];
+    if (!list.length || this.busy) return;
     const repo = this.repo, number = this.number, id = this.id();
-    this.busy = label; this.error = null;
+    this.busy = list[0].busy ?? "Saving…"; this.busyWhere = where; this.failed = null; this.confirm = null;
     cx.spawn(async (cx) => {
       try {
-        const r = await exec("gh", ["pr", args[0], String(number), "-R", repo, ...args.slice(1)], { on: this.on });
-        if (r.code !== 0) throw new Error((r.stderr || r.stdout).trim());
-        after?.();
-        notify({ title: label, body: `${repo}#${number}`, level: "success", timeout: 2500 });
-      } catch (e) { this.error = String(e?.message ?? e); }
+        for (const [n, { label, args }] of list.entries()) {
+          const r = await exec("gh", ["pr", args[0], String(number), "-R", repo, ...args.slice(1)], { on: this.on });
+          if (r.code !== 0) throw new Error((r.stderr || r.stdout).trim());
+          this.actedAt = Date.now();
+          if (n === 0) after?.();
+          notify({ title: label, body: `${repo}#${number}`, level: "success", timeout: 2500 });
+        }
+      } catch (e) { this.failed = { where, message: String(e?.message ?? e) }; }
       finally {
         this.busy = null;
         setShared("prs.changed", { repo, number, at: Date.now() });
-        if (this.id() === id) this.load(cx);
+        if (this.id() === id) this.load(cx, true);
         cx.notify();
       }
     });
     cx.notify();
   }
 
+  // What the merge box's buttons do; the box asks for confirmation before calling merge or a push to someone else's branch.
+  act(kind, cx) {
+    const pr = this.pr;
+    if (kind === "merge") return this.run(mergeArgs(mergeBox(pr, this.mergeCtx(pr)).merge.method, pr.headRefOid), cx, "merge");
+    if (kind === "update") return this.run(updateBranchArgs(), cx, "update");
+    if (kind === "ready") return this.run(readyArgs(), cx, "ready");
+    if (kind === "reopen") return this.run(stateArgs(false, ""), cx, "reopen");
+    if (kind === "draft") return this.run(draftArgs(), cx, "draft");
+    // The header's main button: start reviewing (assign me), or ask those whose review predates the last commit to look again.
+    if (kind === "start") return this.run(assignArgs(true), cx, "review");
+    if (kind === "rerequest") return this.run(reviewAction(pr, this.reviewInfo(pr)).stale.map(reviewerArgs), cx, "review");
+  }
+
+  reviewInfo(pr) { return reviewState(pr, this.timelines[this.id()] ?? null, this.me); }
+
+  mergeCtx(pr) {
+    const id = this.id(), cmp = this.compares[id] ?? null, items = this.timelines[id] ?? null, key = cmp && `${cmp.baseSha}..${pr.headRefOid}`;
+    return { me: this.me, repo: SETTINGS[this.settingsKey()] ?? null, compare: cmp, conflicts: key ? this.conflicts[key] ?? null : null,
+      review: this.reviewInfo(pr), method: this.method, branchDeleted: Boolean(items?.some((e) => e.kind === "branchdeleted")) };
+  }
+
   cleared() { this.reply.set_value(""); this.replying = false; this.mode = "write"; }
 
-  comment(cx) { this.run(commentArgs(this.reply.value()), cx, () => this.cleared()); }
+  comment(cx) { this.run(commentArgs(this.reply.value()), cx, "composer", () => this.cleared()); }
 
-  review(kind, cx) { this.run(reviewArgs(kind, this.reply.value()), cx, () => this.cleared()); }
+  review(kind, cx) { this.run(reviewArgs(kind, this.reply.value()), cx, "composer", () => this.cleared()); }
 
-  setState(close, cx) { this.run(stateArgs(close, this.reply.value()), cx, () => this.cleared()); }
+  setState(close, cx) { this.run(stateArgs(close, this.reply.value()), cx, "composer", () => this.cleared()); }
 
-  ready(cx) { this.run(readyArgs(), cx); }
+  // Approving or requesting changes while I'm one of the assignees also ends my review: review, then unassign me.
+  finish(kind, cx) { this.run(finishReviewArgs(kind, this.reply.value()), cx, "composer", () => this.cleared()); }
 
-  assign(on, cx) { this.run(assignArgs(on), cx); }
+  ready(cx) { this.run(readyArgs(), cx, "composer"); }
 
   // Shows the change at once; the reload after gh confirms it.
   toggleLabel(l, cx) {
@@ -169,13 +235,14 @@ export class Viewer {
 
   glyph(name, size, color) { return div().size(size).flex_none().when(this.icons, (e) => e.child(svg(icon(name)).size(size).text_color(color))); }
 
-  button(id, label, t, onClick, { glyph = null, enabled = true, fill = null, tint = null } = {}) {
+  button(id, label, t, onClick, { glyph = null, enabled = true, fill = null, tint = null, trail = null, ink = t.background } = {}) {
     const solid = fill && enabled;
     return h_flex().id(id).h(32).px(12).gap(6).flex_none().items_center().justify_center().rounded(6).text_size(13).font_medium()
-      .bg(solid ? fill : t.raised).border_1().border_color(solid ? fill : t.border).text_color(solid ? "#ffffff" : enabled ? t.foreground : t.dim)
+      .bg(solid ? fill : t.raised).border_1().border_color(solid ? fill : t.border).text_color(solid ? ink : enabled ? t.foreground : t.dim)
       .when(enabled, (e) => e.cursor_pointer().hover((s) => s.bg(solid ? `${fill}dd` : t.hover)).on_click(onClick))
-      .when(Boolean(glyph), (e) => e.child(this.glyph(glyph, 14, solid ? "#ffffff" : tint ?? t.muted)))
-      .when(label !== "", (e) => e.child(label));
+      .when(Boolean(glyph), (e) => e.child(this.glyph(glyph, 14, solid ? ink : tint ?? t.muted)))
+      .when(label !== "", (e) => e.child(label))
+      .when(Boolean(trail), (e) => e.child(this.glyph(trail, 12, solid ? ink : t.muted)));
   }
 
   badge(label, t) {
@@ -203,7 +270,7 @@ export class Viewer {
   card(key, c, t, cx, { head = null, glyph = null, tint = null, extra = [] } = {}) {
     const author = login(this.pr.author);
     const empty = c.first ? "No description provided." : null;
-    return v_flex().flex_none().rounded(6).border_1().border_color(c.state === "approved" ? `${GITHUB.open}88` : c.state === "changes_requested" ? `${GITHUB.closed}88` : t.border).overflow_hidden().bg(t.background)
+    return v_flex().flex_none().rounded(6).border_1().border_color(c.state === "approved" ? `${tone(t, "ok")}88` : c.state === "changes_requested" ? `${tone(t, "bad")}88` : t.border).overflow_hidden().bg(t.background)
       .child(h_flex().h(38).px(12).gap(8).items_center().bg(t.raised).border_b(1).border_color(t.border).text_size(13)
         .child(this.pic(c.login, c.avatar, 20, t, cx))
         .child(div().font_semibold().text_color(t.foreground).child(shown(c.login)))
@@ -226,7 +293,7 @@ export class Viewer {
   inline(key, comments, t, cx) {
     return comments.map((c, n) => v_flex().flex_none().border_t(1).border_color(t.border).bg(t.background)
       .when(!c.reply, (e) => e.child(h_flex().id(`${key}-f${n}`).px(16).py(6).gap(6).items_center().bg(t.raised).text_size(12).text_color(t.muted).cursor_pointer()
-        .on_click(() => c.url && openUrl(c.url)).hover((s) => s.text_color(GITHUB.link))
+        .on_click(() => c.url && openUrl(c.url)).hover((s) => s.text_color(t.accent))
         .child(this.glyph("file", 13, t.muted)).child(div().min_w(0).truncate().font_semibold().child(c.path ?? "")).when(c.line != null, (x) => x.child(`:${c.line}`))))
       .child(h_flex().px(16).py(10).gap(10).items_start()
         .child(this.pic(c.login, c.avatar, 20, t, cx))
@@ -248,11 +315,11 @@ export class Viewer {
         if (e.removed.length) parts.push(muted("removed"), ...e.removed.map((l) => labelChip(l, t)));
         parts.push(muted(e.added.length + e.removed.length === 1 ? "label" : "labels"));
         break;
-      case "assign": parts.push(...(e.who === e.login ? [muted(e.added ? "self-assigned this" : "removed their assignment")] : [muted(e.added ? "assigned" : "unassigned"), strong(shown(e.who))])); break;
+      case "assign": { const w = assignWords(e); parts.push(muted(w.text), ...(w.who ? [strong(shown(w.who))] : [])); break; }
       case "request": parts.push(muted(e.added ? "requested a review from" : "removed the review request for"), strong(shown(e.who))); break;
-      case "closed": parts.push(muted("closed this")); [glyph, fill] = ["closed", GITHUB.closed]; break;
-      case "reopened": parts.push(muted("reopened this")); [glyph, fill] = ["open", GITHUB.open]; break;
-      case "merged": parts.push(muted("merged this")); [glyph, fill] = ["merged", GITHUB.done]; break;
+      case "closed": parts.push(muted("closed this")); [glyph, fill] = ["closed", t.ansi1]; break;
+      case "reopened": parts.push(muted("reopened this")); [glyph, fill] = ["open", t.ansi2]; break;
+      case "merged": parts.push(muted("merged this")); [glyph, fill] = ["merged", t.ansi5]; break;
       case "ready": parts.push(muted("marked this as ready for review")); break;
       case "draft": parts.push(muted("marked this as a draft")); break;
       case "forcepush": parts.push(muted("force-pushed the branch")); break;
@@ -261,11 +328,11 @@ export class Viewer {
       case "mention": parts.push(muted("mentioned this")); break;
       case "commits": parts.push(muted(`added ${e.commits.length} commit${e.commits.length === 1 ? "" : "s"}`)); break;
     }
-    const color = e.state === "OPEN" || e.state === "open" ? GITHUB.open : e.merged || e.state === "closed" ? GITHUB.done : t.muted;
+    const color = e.state === "OPEN" || e.state === "open" ? t.ansi2 : e.merged || e.state === "closed" ? t.ansi5 : t.muted;
     return v_flex().flex_none().gap(6)
       .child(h_flex().pl(6).gap(10).items_center()
-        .child(div().size(28).flex_none().rounded(14).flex().items_center().justify_center().bg(fill ?? t.raised).border_1().border_color(fill ?? t.border)
-          .child(this.glyph(glyph, 14, fill ? "#ffffff" : t.muted)))
+        .child(div().size(28).flex_none().rounded(14).flex().items_center().justify_center().bg(fill ? `${fill}24` : t.raised).border_1().border_color(fill ? `${fill}55` : t.border)
+          .child(this.glyph(glyph, 14, fill ?? t.muted)))
         .child(h_flex().flex_1().min_w(0).gap(5).items_center().flex_wrap().text_size(13).text_color(t.muted)
           .when(e.kind !== "commits", (x) => x.child(this.pic(e.login, e.avatar, 16, t, cx)))
           .child(strong(shown(e.login ?? "")))
@@ -274,18 +341,18 @@ export class Viewer {
         .on_click((_ev, cx) => this.link(e.url, cx))
         .child(this.glyph(e.pr ? "open" : "dot", 16, color))
         .child(div().flex_1().min_w(0).child(h_flex().gap(6).flex_wrap()
-          .child(div().font_semibold().text_color(t.foreground).hover((s) => s.text_color(GITHUB.link)).child(e.title ?? ""))
+          .child(div().font_semibold().text_color(t.foreground).hover((s) => s.text_color(t.accent)).child(e.title ?? ""))
           .child(div().text_color(t.muted).child(`${e.repo === this.repo ? "" : e.repo}#${e.number}`))))))
       .when(e.kind === "commits", (el) => el.child(v_flex().ml(44).gap(4)
         .children(e.commits.slice(0, 4).map((c) => this.commitRow(`${key}-${c.sha}`, c, t)))
-        .when(e.commits.length > 4, (x) => x.child(div().id(`${key}-more`).text_size(12).text_color(GITHUB.link).cursor_pointer()
+        .when(e.commits.length > 4, (x) => x.child(div().id(`${key}-more`).text_size(12).text_color(t.accent).cursor_pointer()
           .on_click((_ev, cx) => { this.tab = "commits"; cx.notify(); }).child(`${e.commits.length - 4} more commits`)))));
   }
 
   commitRow(key, c, t) {
     const [headline] = c.message.split("\n");
     return h_flex().id(key).gap(8).items_center().cursor_pointer().text_size(12).on_click(() => c.url && openUrl(c.url))
-      .child(div().px(6).py(1).rounded(5).bg(t.raised).border_1().border_color(t.border).text_color(t.muted).hover((s) => s.text_color(GITHUB.link)).child(c.sha.slice(0, 7)))
+      .child(div().px(6).py(1).rounded(5).bg(t.raised).border_1().border_color(t.border).text_color(t.muted).hover((s) => s.text_color(t.accent)).child(c.sha.slice(0, 7)))
       .child(div().flex_1().min_w(0).truncate().text_color(t.foreground).child(headline));
   }
 
@@ -298,7 +365,7 @@ export class Viewer {
     const draw = (e, n) => {
       if (e.kind === "comment") return this.card(`pr-comment-${n}`, e, t, cx);
       if (e.kind === "review") {
-        const [head, glyph, tint] = REVIEWS[e.state] ?? REVIEWS.commented;
+        const [head, glyph, tint] = verdict(e.state, t);
         return this.card(`pr-review-${n}`, e, t, cx, { head: `${head} ${ago(e.at)}`, glyph, tint, extra: this.inline(`pr-review-${n}`, e.comments, t, cx) });
       }
       return this.event(`pr-event-${n}`, e, t, cx);
@@ -308,6 +375,9 @@ export class Viewer {
 
   composer(pr, t, cx) {
     const open = pr.state === "OPEN", busy = Boolean(this.busy), text = Boolean(this.replying), mine = login(pr.author) === this.me;
+    // Assigned = I'm reviewing now: my verdict also ends that.
+    const finishing = this.reviewInfo(pr).reviewing.includes(this.me), end = finishing ? " & finish" : "";
+    const verdictOf = (kind) => (_e, cx) => (finishing ? this.finish(kind, cx) : this.review(kind, cx));
     const tab = (id, label) => div().id(`pr-mode-${id}`).h(32).px(14).flex().items_center().rounded_t(6).text_size(13).cursor_pointer()
       .when(this.mode === id, (e) => e.bg(t.background).border_1().border_b(0).border_color(t.border).text_color(t.foreground))
       .when(this.mode !== id, (e) => e.text_color(t.muted).hover((s) => s.text_color(t.foreground)))
@@ -323,15 +393,15 @@ export class Viewer {
             ? TextView.markdown("pr-preview", linkify(this.reply.value(), this.repo)).on_link_click((url, cx) => this.link(url, cx))
             : div().text_color(t.muted).child("Nothing to preview")))
         .child(h_flex().px(12).py(10).gap(8).items_center().flex_wrap().bg(t.background).border_t(1).border_color(t.border)
-          .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(t.muted).child("Markdown · Ctrl+Enter to comment"))
-          .when(open && pr.isDraft, (e) => e.child(this.button("pr-ready", "Ready for review", t, (_e, cx) => this.ready(cx), { enabled: !busy, glyph: "open", tint: GITHUB.open })))
-          .child(open
-            ? this.button("pr-close-state", text ? "Close with comment" : "Close pull request", t, (_e, cx) => this.setState(true, cx), { enabled: !busy, glyph: "closed", tint: GITHUB.closed })
-            : pr.state === "CLOSED" ? this.button("pr-reopen", text ? "Reopen with comment" : "Reopen pull request", t, (_e, cx) => this.setState(false, cx), { enabled: !busy, glyph: "open", tint: GITHUB.open }) : div())
+          .when(open, (e) => e.child(this.button("pr-close-state", text ? "Close with comment" : "Close pull request", t, (_e, cx) => this.setState(true, cx), { enabled: !busy, glyph: "closed", tint: t.ansi1 })))
+          .when(pr.state === "CLOSED", (e) => e.child(this.button("pr-reopen", text ? "Reopen with comment" : "Reopen pull request", t, (_e, cx) => this.setState(false, cx), { enabled: !busy, glyph: "open", tint: t.ansi2 })))
+          .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(this.failed?.where === "composer" ? t.ansi1 : t.muted)
+            .child(this.failed?.where === "composer" ? this.failed.message : busy && this.busyWhere === "composer" ? this.busy : "Markdown · Ctrl+Enter to comment"))
+          .when(open && pr.isDraft, (e) => e.child(this.button("pr-ready", "Ready for review", t, (_e, cx) => this.ready(cx), { enabled: !busy, glyph: "open", tint: t.ansi2 })))
           .when(open && !mine, (e) => e
-            .child(this.button("pr-request-changes", "Request changes", t, (_e, cx) => this.review("request-changes", cx), { enabled: text && !busy, glyph: "x", tint: GITHUB.closed }))
-            .child(this.button("pr-approve", "Approve", t, (_e, cx) => this.review("approve", cx), { enabled: !busy, fill: GITHUB.open, glyph: "check" })))
-          .child(this.button("pr-comment", "Comment", t, (_e, cx) => this.comment(cx), { enabled: text && !busy, fill: text ? GITHUB.link : null, glyph: "comment" }))));
+            .child(this.button("pr-request-changes", `Request changes${end}`, t, verdictOf("request-changes"), { enabled: text && !busy, glyph: "x", tint: t.ansi1 }))
+            .child(this.button("pr-approve", `Approve${end}`, t, verdictOf("approve"), { enabled: !busy, fill: t.ansi2, glyph: "check" })))
+          .child(this.button("pr-comment", "Comment", t, (_e, cx) => this.comment(cx), { enabled: text && !busy, fill: text ? t.accent : null, glyph: "comment" }))));
   }
 
   rows(title, list, t) {
@@ -355,16 +425,16 @@ export class Viewer {
       .cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => openUrl(`${pr.url}/files`))
       .child(this.glyph("file", 14, t.muted))
       .child(div().flex_1().min_w(0).truncate().text_size(13).text_color(t.foreground).child(f.path))
-      .child(h_flex().gap(6).flex_none().text_size(12).child(div().text_color(GITHUB.open).child(`+${f.additions}`)).child(div().text_color(GITHUB.closed).child(`−${f.deletions}`)))
+      .child(h_flex().gap(6).flex_none().text_size(12).child(div().text_color(t.ansi2).child(`+${f.additions}`)).child(div().text_color(t.ansi1).child(`−${f.deletions}`)))
       .child(h_flex().w(60).h(6).flex_none().rounded(3).overflow_hidden().bg(t.border)
-        .child(div().h_full().w(Math.round(60 * f.additions / most)).bg(GITHUB.open))
-        .child(div().h_full().w(Math.round(60 * f.deletions / most)).bg(GITHUB.closed))));
+        .child(div().h_full().w(Math.round(60 * f.additions / most)).bg(t.ansi2))
+        .child(div().h_full().w(Math.round(60 * f.deletions / most)).bg(t.ansi1))));
     return this.rows(`${pr.changedFiles} files changed`, rows, t);
   }
 
   checksTab(pr, t) {
     const list = checks(pr.statusCheckRollup);
-    const tint = { passing: GITHUB.open, failing: GITHUB.closed, pending: GITHUB.warn, skipped: GITHUB.draft };
+    const tint = { passing: t.ansi2, failing: t.ansi1, pending: t.ansi3, skipped: t.muted };
     const glyph = { passing: "check", failing: "x", pending: "dot", skipped: "dot" };
     if (!list.length) return div().text_color(t.muted).child("No checks on this pull request.");
     return this.rows(`${list.length} checks`, list.map((c, n) => h_flex().id(`check-${n}`).px(14).py(8).gap(10).items_center().border_t(n ? 1 : 0).border_color(t.border)
@@ -374,110 +444,28 @@ export class Viewer {
       .child(div().text_size(12).text_color(t.muted).child(c.outcome))), t);
   }
 
-  section(title, t, body, action = null) {
-    return v_flex().flex_none().gap(8).py(14).border_b(1).border_color(t.border)
-      .child(h_flex().items_center().text_size(12).font_semibold().text_color(t.muted)
-        .child(div().flex_1().child(title)).when(Boolean(action), (e) => e.child(action)))
-      .child(body);
-  }
-
-  sidebar(pr, t, cx) {
-    const none = (text) => div().text_size(12).text_color(t.muted).child(text);
-    const action = (id, label, onClick) => div().id(id).text_size(12).font_normal().text_color(GITHUB.link).cursor_pointer().hover((s) => s.underline()).on_click(onClick).child(label);
-    const mine = pr.assignees.some((a) => a.login === this.me), all = this.labels[this.repo];
-    const verdicts = new Map(pr.latestReviews.map((r) => [login(r.author), r.state]));
-    const reviewers = [...verdicts.entries(), ...pr.reviewRequests.map((r) => [r.login ?? r.name ?? r.slug, "PENDING"]).filter(([n]) => !verdicts.has(n))];
-    const list = checks(pr.statusCheckRollup), failing = list.filter((c) => c.outcome === "failing").length, pending = list.filter((c) => c.outcome === "pending").length;
-    const people = new Map();
-    for (const [name, url] of [[login(pr.author)], ...pr.comments.map((c) => [login(c.author)]), ...(this.timelines[this.id()] ?? []).filter((e) => e.login && e.kind !== "commits").map((e) => [e.login, e.avatar])])
-      if (!bot(name)) people.set(name, people.get(name) ?? url ?? null);
-    return v_flex().id("pr-sidebar").w(264).flex_none().min_h(0).overflow_y_scrollbar().pl(8).pr(24).pt(6)
-      .child(this.section("Reviewers", t, reviewers.length
-        ? v_flex().gap(8).children(reviewers.map(([name, state]) => {
-          const [, glyph, tint] = REVIEWS[state] ?? REVIEWS.COMMENTED;
-          return h_flex().gap(8).items_center().text_size(13).child(this.pic(name, null, 20, t, cx)).child(div().flex_1().min_w(0).truncate().font_semibold().child(shown(name)))
-            .child(this.glyph(glyph, 14, tint ?? t.muted));
-        }))
-        : none("No reviews yet")))
-      .child(this.section("Assignees", t, pr.assignees.length
-        ? v_flex().gap(8).children(pr.assignees.map((a) => h_flex().gap(8).items_center().text_size(13).font_semibold().child(this.pic(a.login, null, 20, t, cx)).child(a.login)))
-        : h_flex().gap(4).child(none("No one ·")).when(Boolean(this.me), (e) => e.child(action("pr-assign", "Assign yourself", (_e, cx) => this.assign(true, cx)))),
-        mine ? action("pr-unassign", "Unassign me", (_e, cx) => this.assign(false, cx)) : null))
-      .child(this.section("Labels", t, this.editing
-        ? (!all ? none("Loading labels…") : v_flex().gap(1).children(all.map((l) => {
-          const on = pr.labels.some((x) => x.name === l.name);
-          return h_flex().id(`label-${l.name}`).px(6).py(5).gap(8).items_start().rounded(6).cursor_pointer().hover((s) => s.bg(t.hover))
-            .on_click((_e, cx) => this.toggleLabel(l, cx))
-            .child(div().w(14).flex_none().text_size(12).text_color(GITHUB.link).child(on ? "✓" : ""))
-            .child(div().mt(3).size(12).flex_none().rounded(6).bg(`#${l.color}`))
-            .child(v_flex().flex_1().min_w(0).child(div().text_size(13).font_semibold().child(l.name))
-              .when(Boolean(l.description), (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(l.description))));
-        })))
-        : pr.labels.length ? h_flex().gap(4).flex_wrap().children(pr.labels.map((l) => labelChip(l, t))) : none("None yet"),
-        action("pr-labels-edit", this.editing ? "Done" : "Edit", (_e, cx) => this.editLabels(cx))))
-      .child(this.section("Checks", t, list.length
-        ? h_flex().id("pr-side-checks").gap(8).items_center().text_size(13).cursor_pointer().on_click((_e, cx) => { this.tab = "checks"; cx.notify(); })
-          .child(this.glyph(failing ? "x" : pending ? "dot" : "check", 16, failing ? GITHUB.closed : pending ? GITHUB.warn : GITHUB.open))
-          .child(failing ? `${failing} failing, ${list.length - failing} other` : pending ? `${pending} pending` : `All ${list.length} passing`)
-        : none("No checks")))
-      .child(this.section("Linked issues", t, (pr.closingIssuesReferences ?? []).length
-        ? v_flex().gap(6).children(pr.closingIssuesReferences.map((i) => h_flex().id(`pr-issue-${i.number}`).gap(8).items_center().text_size(13).cursor_pointer()
-          .on_click((_e, cx) => this.link(i.url, cx)).child(this.glyph("dot", 14, t.muted)).child(div().font_semibold().hover((s) => s.text_color(GITHUB.link)).child(`#${i.number}`))))
-        : none("None yet")))
-      .child(this.section("Participants", t, h_flex().gap(4).flex_wrap().children([...people].slice(0, 18).map(([name, url]) => this.pic(name, url, 24, t, cx)))));
-  }
-
   render(cx) {
     const t = theme(), pr = this.pr;
-    const bar = h_flex().h(32).gap(8).items_center()
-      .when(this.history.length > 0, (e) => e.child(this.button("pr-back", "Back", t, (_e, cx) => this.back(cx), { glyph: "close" })))
-      .child(div().text_size(13).text_color(t.muted).child(`${this.repo} · pull request`))
-      .child(div().flex_1().min_w(0).text_size(12).text_color(t.ansi1).truncate().child(pr && this.error ? this.error : ""))
-      .when(this.loading || Boolean(this.busy), (e) => e.child(h_flex().gap(6).items_center().text_size(12).text_color(t.muted)
-        .child(svg("mods/workspace-chrome/spinner.svg").size(12).text_color(t.working).spin(900)).child(this.busy ? "Saving" : "Refreshing")))
-      .when(Boolean(pr) && !this.loading && !this.busy, (e) => e.child(this.button("pr-refresh", "Refresh", t, (_e, cx) => { this.load(cx); cx.notify(); }, { glyph: "refresh" })))
-      .when(Boolean(pr), (e) => e.child(this.button("pr-copy", "Copy branch", t, (_e, cx) => {
-        cx.write_to_clipboard(pr.headRefName);
-        notify({ title: "Branch copied", body: pr.headRefName, level: "success", timeout: 2500 });
-      }, { glyph: "copy" })))
-      .when(Boolean(pr), (e) => e.child(this.button("pr-github", "Open on GitHub", t, () => openUrl(pr.url), { glyph: "external" })))
-      .child(this.button("pr-close", "", t, () => closeOverlay(this.overlay), { glyph: "close" }));
-    if (!pr) return v_flex().id("pr").size_full().bg(t.background).text_color(t.foreground).text_size(14).px(32).pt(16).gap(20)
-      .child(bar)
-      .when(Boolean(this.seed), (e) => e.child(div().text_size(24).child(this.seed)))
+    // The header draws from the pull request, or until it arrives from what the list knew.
+    const sd = this.seed;
+    const h = pr ? { title: pr.title, author: login(pr.author), head: pr.headRefName, base: pr.baseRefName, adds: pr.additions, dels: pr.deletions, state: pr.state, draft: pr.isDraft, conflicts: pr.mergeable === "CONFLICTING" }
+      : sd?.title ? { title: sd.title, author: sd.author, head: sd.head, base: sd.base, adds: sd.adds, dels: sd.dels, state: (sd.state ?? "open").toUpperCase(), draft: sd.draft, conflicts: sd.merge === "conflicts" } : null;
+    if (!h) return v_flex().id("pr").size_full().bg(t.background).text_color(t.foreground).text_size(14).px(32).pt(16).gap(20)
+      .child(bar(this, pr, t))
       .child(this.loading ? div().text_color(t.muted).child(`Loading #${this.number}…`) : div().text_color(t.ansi1).child(this.error ?? ""));
 
-    const merged = pr.state === "MERGED", closed = pr.state === "CLOSED";
-    const [state, color, glyph] = merged ? ["Merged", GITHUB.done, "merged"] : closed ? ["Closed", GITHUB.closed, "closed"] : pr.isDraft ? ["Draft", GITHUB.draft, "draft"] : ["Open", GITHUB.open, "open"];
-    const n = pr.commits.length, count = { commits: n, files: pr.changedFiles, checks: checks(pr.statusCheckRollup).length };
-    const body = this.tab === "commits" ? this.commitsTab(pr, t) : this.tab === "files" ? this.filesTab(pr, t) : this.tab === "checks" ? this.checksTab(pr, t) : null;
+    const body = !pr ? null : this.tab === "commits" ? this.commitsTab(pr, t) : this.tab === "files" ? this.filesTab(pr, t) : this.tab === "checks" ? this.checksTab(pr, t) : null;
     return v_flex().id("pr").size_full().min_h(0).bg(t.background).text_color(t.foreground).text_size(14)
       .on_size_change((size, cx) => { if (size.width !== this.width) { this.width = size.width; cx.notify(); } })
-      .child(v_flex().flex_none().px(32).pt(14).pb(0).gap(14).border_b(1).border_color(t.border)
-        .child(bar)
-        .child(h_flex().flex_wrap().gap_x(8).text_size(30).children(pr.title.split(/\s+/).filter(Boolean).map((w) => div().child(w)))
-          .child(div().text_color(t.muted).child(`#${pr.number}`)))
-        .child(h_flex().gap(10).items_center().flex_wrap()
-          .child(h_flex().h(32).px(12).gap(6).items_center().rounded(16).bg(color).text_color("#ffffff").text_size(14).font_semibold()
-            .child(this.glyph(glyph, 16, "#ffffff")).child(state))
-          .child(h_flex().gap(6).items_center().flex_wrap().text_size(13).text_color(t.muted)
-            .child(div().font_semibold().text_color(t.foreground).child(shown(login(pr.author))))
-            .child(merged ? `merged ${n} commit${n === 1 ? "" : "s"} into` : `wants to merge ${n} commit${n === 1 ? "" : "s"} into`)
-            .child(div().px(6).py(1).rounded(5).bg(t.raised).border_1().border_color(t.border).text_color(GITHUB.link).child(pr.baseRefName))
-            .child("from")
-            .child(div().px(6).py(1).rounded(5).bg(t.raised).border_1().border_color(t.border).text_color(GITHUB.link).child(pr.headRefName)))
-          .child(h_flex().gap(6).text_size(13).font_semibold().child(div().text_color(GITHUB.open).child(`+${pr.additions}`)).child(div().text_color(GITHUB.closed).child(`−${pr.deletions}`)))
-          .when(pr.mergeable === "CONFLICTING", (e) => e.child(h_flex().h(22).px(8).items_center().rounded(11).bg(`${GITHUB.warn}33`).text_size(12).text_color(GITHUB.warn).child("Has conflicts"))))
-        .child(h_flex().gap(2).items_end()
-          .children(TABS.map(([id, label]) => h_flex().id(`pr-tab-${id}`).h(38).px(14).gap(6).items_center().text_size(13).cursor_pointer()
-            .border_b(2).border_color(this.tab === id ? GITHUB.link : "#00000000").text_color(this.tab === id ? t.foreground : t.muted).when(this.tab === id, (e) => e.font_semibold())
-            .hover((s) => s.text_color(t.foreground)).on_click((_e, cx) => { this.tab = id; cx.notify(); })
-            .child(label).when(Boolean(count[id]), (e) => e.child(this.badge(String(count[id]), t)))))))
-      .child(h_flex().flex_1().min_h(0).items_start()
+      .child(header(this, h, pr, t))
+      .child(!pr ? v_flex().id("pr-loading").flex_1().min_h(0).overflow_y_scrollbar().px(32).py(20).gap(20)
+        .child(this.error ? div().text_color(t.ansi1).child(this.error) : div().text_color(t.muted).child(`Loading #${this.number}…`))
+        .when(!this.error, (e) => e.child(mergeSkeleton(this, t)))
+        : h_flex().flex_1().min_h(0).items_start()
         .child(v_flex().id(`pr-main-${this.id()}-${this.tab}`).flex_1().min_w(0).h_full().overflow_y_scrollbar().pl(32).pr(24).py(20)
           .children(body ? [body] : this.thread(pr, t, cx))
-          .when(!body, (e) => e.child(div().flex_none().h(28)).child(this.composer(pr, t, cx)))
+          .when(!body, (e) => e.child(div().flex_none().h(24)).child(mergeView(this, pr, t)).child(div().flex_none().h(28)).child(this.composer(pr, t, cx)))
           .child(div().flex_none().h(24)))
-        .child(this.sidebar(pr, t, cx)));
+        .child(sidebar(this, pr, t, cx)));
   }
 }

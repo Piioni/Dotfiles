@@ -15,6 +15,8 @@ test("review state: drafts first, then changes beat approvals, no review means n
   assert.equal(reviewOf(pr(1, { reviewDecision: "APPROVED" })), "approved");
   assert.equal(reviewOf(pr(1, { latestReviews: [{ author: { login: "x" }, state: "COMMENTED" }] })), "needs");
   assert.equal(reviewOf(pr(1)), "needs");
+  assert.equal(reviewOf(pr(1, { headRefOid: "new", reviewDecision: "CHANGES_REQUESTED", latestReviews: [{ state: "CHANGES_REQUESTED", commit: { oid: "old" } }] })), "needs");
+  assert.equal(reviewOf(pr(1, { headRefOid: "new", reviewDecision: "CHANGES_REQUESTED", latestReviews: [{ state: "CHANGES_REQUESTED", commit: { oid: "new" } }] })), "changes");
 });
 
 test("ci mixes check runs and commit statuses", () => {

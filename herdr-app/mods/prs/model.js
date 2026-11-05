@@ -3,10 +3,11 @@
 // What a PR needs next, in one word: draft, approved, changes (requested) or needs (a review).
 export function reviewOf(pr) {
   if (pr.draft) return "draft";
-  const states = pr.reviews.map((r) => r.state);
-  if (pr.decision === "CHANGES_REQUESTED" || states.includes("CHANGES_REQUESTED")) return "changes";
+  const states = pr.reviews.filter((r) => !r.sha || !pr.headOid || r.sha === pr.headOid).map((r) => r.state);
+  const hasStaleReview = pr.reviews.some((r) => r.sha && pr.headOid && r.sha !== pr.headOid);
+  if ((!hasStaleReview && pr.decision === "CHANGES_REQUESTED") || states.includes("CHANGES_REQUESTED")) return "changes";
   // Where the repo requires reviews GitHub's decision wins (one approval of two is not approved); without rules, any approval counts.
-  if (pr.decision ? pr.decision === "APPROVED" : states.includes("APPROVED")) return "approved";
+  if ((!hasStaleReview && pr.decision === "APPROVED") || (!pr.decision && states.includes("APPROVED"))) return "approved";
   return "needs";
 }
 
@@ -51,8 +52,8 @@ export function normalize(p, state = "open") {
     draft: Boolean(p.isDraft), decision: p.reviewDecision ?? "", state,
     assignees: (p.assignees ?? []).map((a) => a.login),
     requested: (p.reviewRequests ?? []).map((r) => r.login ?? r.name ?? r.slug).filter(Boolean),
-    reviews: (p.latestReviews ?? []).map((r) => ({ login: r.author?.login, state: r.state })),
-    labels: p.labels ?? [], head: p.headRefName, base: p.baseRefName,
+    reviews: (p.latestReviews ?? []).map((r) => ({ login: r.author?.login, state: r.state, sha: r.commit?.oid })),
+    labels: p.labels ?? [], head: p.headRefName, headOid: p.headRefOid, base: p.baseRefName,
     adds: p.additions ?? 0, dels: p.deletions ?? 0, files: p.changedFiles ?? 0,
     updatedAt: p.updatedAt, ci: ciOf(p.statusCheckRollup),
     merge: mergeOf(p), blocked: p.mergeStateStatus === "BLOCKED", last: lastFromOthers(p),

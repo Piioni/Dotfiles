@@ -26,6 +26,8 @@ const ICONS = {
   search: SVG(`<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`),
   "chev-r": SVG(`<path d="m9 6 6 6-6 6"/>`),
   "chev-d": SVG(`<path d="m6 9 6 6 6-6"/>`),
+  back: SVG(`<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>`),
+  behind: SVG(`<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>`),
   refresh: SVG(`<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>`),
 };
 

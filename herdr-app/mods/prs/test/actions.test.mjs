@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { reviewArgs, commentArgs, stateArgs, readyArgs, assignArgs, labelArgs } from "../actions.js";
+import { reviewArgs, commentArgs, stateArgs, readyArgs, assignArgs, labelArgs, mergeArgs, updateBranchArgs, draftArgs, reviewerArgs, finishReviewArgs } from "../actions.js";
 
 test("approving works without text; requesting changes or commenting a review needs it", () => {
   assert.deepEqual(reviewArgs("approve", "  ").args, ["review", "--approve"]);

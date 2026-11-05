@@ -6,9 +6,10 @@ import { avatar } from "./people.js";
 import { shown as handle } from "./timeline.js";
 import { icons, icon } from "./icons.js";
 import { Viewer } from "./viewer.js";
+import { Menu } from "./menu.js";
 
 const REFRESH = 60000;
-const BASIC = "number,title,url,author,assignees,isDraft,labels,updatedAt,headRefName,baseRefName,additions,deletions,changedFiles";
+const BASIC = "number,title,url,author,assignees,isDraft,labels,updatedAt,headRefName,headRefOid,baseRefName,additions,deletions,changedFiles";
 // What the open list needs to judge a PR; merged and closed ones are only listed, so they skip the heavy review, comment and check data.
 const FIELDS = { open: `${BASIC},reviewRequests,latestReviews,comments,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup`, merged: BASIC, closed: BASIC };
 // A change of focus or panel re-uses a list this young instead of asking GitHub again.
@@ -25,6 +26,21 @@ function find(node, id) {
   if (node?.id === id) return node;
   for (const child of node?.children ?? []) { const hit = find(child, id); if (hit) return hit; }
   return null;
+}
+
+// `gh pr list` returns every review's commit as empty, so ask GraphQL which commit each verdict was left on.
+// Best effort: on failure reviews keep no commit and are treated as current.
+async function reviewCommits(repo, raw, on) {
+  const [owner, name] = repo.split("/");
+  const query = `query($o:String!,$n:String!){repository(owner:$o,name:$n){pullRequests(states:OPEN,first:100){nodes{number latestReviews(first:30){nodes{author{login} commit{oid}}}}}}}`;
+  try {
+    const r = await exec("gh", ["api", "graphql", "-f", `query=${query}`, "-f", `o=${owner}`, "-f", `n=${name}`], { on });
+    if (r.code !== 0) return;
+    const oids = new Map();
+    for (const p of JSON.parse(r.stdout).data.repository.pullRequests.nodes)
+      for (const v of p.latestReviews.nodes) oids.set(`${p.number}:${v.author?.login}`, v.commit?.oid);
+    for (const p of raw) for (const v of p.latestReviews ?? []) v.commit = { oid: oids.get(`${p.number}:${v.author?.login}`) ?? v.commit?.oid };
+  } catch { /* keep the list usable without commits */ }
 }
 
 // Nothing to fetch while another panel (or none) is showing.
@@ -56,7 +72,8 @@ function age(iso) {
 
 export default class Prs extends View {
   init(_props, cx) {
-    const { pr, overlay, button } = props() ?? {};
+    const { pr, overlay, button, menu } = props() ?? {};
+    if (menu) { this.menu = new Menu(menu, overlay, cx); return; }
     if (pr) { this.viewer = new Viewer(pr, overlay, cx); return; }
     if (button) {
       const panels = shared("workspace.panels") ?? ["files", "changes"];
@@ -137,7 +154,9 @@ export default class Prs extends View {
         this.me = await this.login(this.repoOn);
         const r = await exec("gh", ["pr", "list", "-R", repo, "--state", state, "--limit", String(STATES[state].limit), "--json", FIELDS[state]], { on: this.repoOn });
         if (r.code !== 0) throw new Error((r.stderr || r.stdout).trim().split("\n")[0]);
-        (this.lists[repo] ??= {})[state] = { prs: JSON.parse(r.stdout).map((p) => normalize(p, state)), at: Date.now() };
+        const raw = JSON.parse(r.stdout);
+        if (state === "open") await reviewCommits(repo, raw, this.repoOn);
+        (this.lists[repo] ??= {})[state] = { prs: raw.map((p) => normalize(p, state)), at: Date.now() };
         this.error = null;
       } catch (e) { this.error = String(e?.message ?? e); }
       finally {
@@ -260,12 +279,16 @@ export default class Prs extends View {
     return prs.flatMap((p, i) => [...(i ? [div().h(1).flex_none().mx(10).bg(t.border).opacity(0.5)] : []), this.row(p, t, cx, implied)]);
   }
 
+  // cwd only when the focused folder is a clone of this very repo: the dialog reads conflicts from it. seed: what the row already knows, so the dialog's header draws at once.
   open(p) {
-    openOverlay({ mod: "prs", kind: "dialog", width: 0.86, height: 0.9, props: { pr: { repo: this.repo, number: p.number, on: this.repoOn ?? null, title: p.title, me: this.me } } });
+    const { cwd, on } = this.where(), clone = cwd && this.repos[JSON.stringify([cwd, on])] === this.repo ? cwd : null;
+    const seed = { title: p.title, author: p.author, head: p.head, base: p.base, draft: p.draft, adds: p.adds, dels: p.dels, merge: p.merge, state: p.state };
+    openOverlay({ mod: "prs", kind: "dialog", width: 0.86, height: 0.9, props: { pr: { repo: this.repo, number: p.number, on: this.repoOn ?? null, me: this.me, cwd: clone, seed } } });
   }
 
   render(cx) {
     if (this.viewer) return this.viewer.render(cx);
+    if (this.menu) return this.menu.render();
     const t = theme();
     if (this.button) return this.toolbar(t);
     const shell = v_flex().id("prs").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13);

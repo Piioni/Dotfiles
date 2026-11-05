@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { timeline, inlineByReview, checks } from "../timeline.js";
+import { timeline, inlineByReview, checks, assignWords } from "../timeline.js";
 
-const actor = (login) => ({ login, avatar_url: `https://a/${login}` });
+const actor = (/** @type {string} */ login) => ({ login, avatar_url: `https://a/${login}` });
 
 test("consecutive commits collapse into one entry; other events keep their order", () => {
   const items = timeline([
@@ -12,7 +12,7 @@ test("consecutive commits collapse into one entry; other events keep their order
     { event: "commented", actor: actor("bo"), body: "hi", created_at: "2026-11-01T03:00:00Z" },
   ]);
   assert.deepEqual(items.map((i) => i.kind), ["assign", "commits", "comment"]);
-  assert.deepEqual(items[1].commits.map((c) => c.sha), ["a1", "b2"]);
+  assert.deepEqual(items[1].commits.map((/** @type {any} */ c) => c.sha), ["a1", "b2"]);
 });
 
 test("a review carries its line comments, matched by review id", () => {
@@ -23,7 +23,7 @@ test("a review carries its line comments, matched by review id", () => {
   ];
   const [review] = timeline([{ event: "reviewed", id: 7, user: actor("bo"), state: "changes_requested", body: "see inline", submitted_at: "2026-11-02T00:00:01Z" }], inline);
   assert.equal(review.state, "changes_requested");
-  assert.deepEqual(review.comments.map((c) => [c.login, c.line, c.reply]), [["bo", 12, false], ["ana", 12, true]]);
+  assert.deepEqual(review.comments.map((/** @type {any} */ c) => [c.login, c.line, c.reply]), [["bo", 12, false], ["ana", 12, true]]);
   assert.equal(inlineByReview(inline).get(8).length, 1);
 });
 
@@ -34,7 +34,25 @@ test("review requests name a user or a team; label bursts by one person merge", 
     { event: "labeled", actor: actor("ana"), label: { name: "a" }, created_at: "2026-11-01T00:01:00Z" },
     { event: "labeled", actor: actor("ana"), label: { name: "b" }, created_at: "2026-11-01T00:01:10Z" },
   ]);
-  assert.deepEqual(items.map((i) => i.who ?? i.added.map((l) => l.name)), ["bo", "core", ["a", "b"]]);
+  assert.deepEqual(items.map((i) => i.who ?? i.added.map((/** @type {any} */ l) => l.name)), ["bo", "core", ["a", "b"]]);
+});
+
+test("assigning yourself reads as starting a review, unassigning as finishing; assigning others stays literal", () => {
+  const items = timeline([
+    { event: "assigned", actor: actor("ana"), assignee: actor("ana"), created_at: "2026-11-01T00:00:00Z" },
+    { event: "unassigned", actor: actor("ana"), assignee: actor("ana"), created_at: "2026-11-01T00:00:01Z" },
+    { event: "assigned", actor: actor("ana"), assignee: actor("bo"), created_at: "2026-11-01T00:00:02Z" },
+    { event: "unassigned", actor: actor("ana"), assignee: actor("bo"), created_at: "2026-11-01T00:00:03Z" },
+  ]);
+  assert.deepEqual(items.map(assignWords), [
+    { text: "started reviewing", who: null }, { text: "finished reviewing", who: null },
+    { text: "assigned", who: "bo" }, { text: "unassigned", who: "bo" },
+  ]);
+});
+
+test("a review remembers the commit it saw", () => {
+  const [r] = timeline([{ event: "reviewed", id: 1, user: actor("bo"), state: "approved", commit_id: "abc", submitted_at: "2026-11-02T00:00:00Z" }]);
+  assert.equal(r.sha, "abc");
 });
 
 test("checks mix check runs and statuses into passing, failing, pending or skipped", () => {
