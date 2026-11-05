@@ -47,16 +47,6 @@ test("accounts keeps quotas and Settings without launchers or the context select
   assert.equal(find(view(), "launch-pi-sipos"), null);
 });
 
-test("accounts no longer creates or changes space folders on startup or refresh", async () => {
-  const folders = { "": { list: [{ id: "custom", name: "Existing", folded: true }], of: { sp1: "custom" }, at: 17 } };
-  fake.stored["space-folders"] = structuredClone(folders);
-  const { cx } = await open();
-  cx.fire(600000);
-  await flush();
-  assert.deepEqual(fake.stored["space-folders"], folders);
-  assert.deepEqual(fake.execs.filter((line) => line.includes("herdr-space-folders.json")), []);
-});
-
 test("clicking an account refreshes its usage and never starts an agent", async () => {
   const reads = /** @type {string[]} */ ([]);
   fake.read = (path) => { reads.push(path); return null; };

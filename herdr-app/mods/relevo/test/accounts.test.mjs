@@ -3,7 +3,7 @@ import { fake, resetFake } from "./fake/herdr.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-const { launchArgv, launchInRepo, launchChoice, pickAccount, launcherOf, loginLauncher, publishSetup, ACCOUNTS } = await import("../accounts.js");
+const { launchArgv, launchChoice, launcherOf, loginLauncher, publishSetup, ACCOUNTS } = await import("../accounts.js");
 
 for (const key of ["personal", "work", "codex"]) {
   test(`${key} launches through the available interactive login shell`, () => {
@@ -55,14 +55,6 @@ test("an account key opens the first launcher that names it; a launcher key open
   assert.equal(launcherOf("work").key, "work");
   assert.equal(launcherOf("codex").key, "codex");
   assert.equal(launcherOf("claude-sipos").key, "claude-sipos");
-});
-
-test("PR work launches the chosen account's launcher in the repo's space", () => {
-  resetFake();
-  launchInRepo({ repo: "someone/project", folder: "/repo", tab: "task", account: "work", prompt: "review this" });
-  assert.deepEqual(fake.runs[0], ["space.new", { name: "project", folder: "/repo", tab: "task", argv: launchArgv("work", "review this") }]);
-  launchInRepo({ repo: "someone/project", folder: "/repo", tab: "task", account: "codex", prompt: "review this" });
-  assert.deepEqual(fake.runs[1][1].argv, launchArgv("codex", "review this"));
 });
 
 /** @param {number} h5 @param {number} [d7] */
@@ -159,36 +151,8 @@ test("the fallback dialog opens the launcher that was answered, and nothing else
   assert.deepEqual(fake.runs.slice(2).map(([, a]) => a.argv), [launchArgv("work"), launchArgv("claude-sipos")]);
 });
 
-test("PR actions use the first Claude account even when it is full, and say so", () => {
-  resetFake();
-  assert.deepEqual(pickAccount({}), { key: "personal", note: null });
-  const full = pickAccount({ personal: usage(100) }, true);
-  assert.deepEqual(full, { key: "personal", note: "Personal is at 100% (5h); the session opens on it anyway" });
-  assert.equal(fake.notices.length, 1);
-  assert.deepEqual(pickAccount({ personal: usage(100), work: usage(100) }), { key: "personal", note: null });
-  assert.equal(ACCOUNTS[0].key, "personal");
-});
-
 test("the setup shared with the agents list has accounts and launchers, no contexts", () => {
   resetFake();
   publishSetup(ACCOUNTS, [launcher("pi")]);
   assert.deepEqual(Object.keys(fake.stored["relevo.setup"]).sort(), ["accounts", "launchers"]);
-});
-
-test("sending review comments on a PR with no agent starts one on the first account even when it is full", async () => {
-  resetFake();
-  fake.props = { root: "/repo", pr: { repo: "someone/project", number: 7, url: "https://github.com/someone/project/pull/7", base: "main" } };
-  fake.stored["relevo.quota.api"] = { personal: { updated: Date.now() / 1000, rate_limits: { five_hour: { used_percentage: 100, resets_at: Date.now() / 1000 + 600 } } } };
-  const { ReviewDiff } = await import("../review.js");
-  const { fakeCx, flush } = await import("./fake/ui.mjs");
-  const review = new ReviewDiff(), cx = fakeCx();
-  review.init({}, /** @type {any} */ (cx));
-  await flush();
-  review.comments = [{ file: "a.ts", key: "+1", line: 1, side: "+", code: "x", text: "why" }];
-  review.send(cx);
-  await flush();
-  const [name, args] = fake.runs.find(([n]) => n === "space.new" || n === "tab.new") ?? [];
-  assert.equal(name, "space.new");
-  assert.equal(args.argv[2], launcherOf("personal").command + ' "$1"');
-  assert.match(fake.notices.at(-1)?.title ?? "", /Personal is at 100% \(5h\); the session opens on it anyway/);
 });

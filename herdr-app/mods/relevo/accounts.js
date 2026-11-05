@@ -1,4 +1,4 @@
-import { home, readTextFile, run, spaces, shared, setShared, notify } from "herdr";
+import { home, readTextFile, shared, setShared } from "herdr";
 import * as CONFIG from "./config.js";
 import { configuredLaunchers, resolveLauncher } from "./lib/launchers.js";
 import { FIVE_HOURS, WEEK, windowOf } from "./lib/time.js";
@@ -96,28 +96,6 @@ export function launchChoice(launcher, quotas) {
     }
   }
   return { launcher, note: null };
-}
-
-// Pull request actions use the first Claude account that has a launcher, even when it is full: the session says so
-// and can be moved to another account from its row, instead of silently running on an account nobody picked.
-/** @param {Record<string, any>} quotas @param {boolean} [announce] */
-export function pickAccount(quotas, announce = false) {
-  const first = ACCOUNTS.find((a) => LAUNCHERS.some((l) => l.app === "claude" && l.account === a.key)) ?? ACCOUNTS[0];
-  const full = launchChoice(launcherOf(first.key), quotas).note;
-  const note = full && `${full}; the session opens on it anyway`;
-  if (announce && note) notify({ title: note, body: "Move it to another account from its row in the agents list.", level: "info" });
-  return { key: first.key, note };
-}
-
-// Runs in the repo's own space (or a new one), not in whichever space is shown.
-/** @param {{repo: string, folder: string, tab: string, account: string, prompt: string}} options */
-export function launchInRepo({ repo, folder, tab, account, prompt }) {
-  const name = repo.split("/").pop();
-  const space = spaces().find((s) => !s.machine && s.folder === folder)
-    ?? spaces().find((s) => !s.machine && s.name === name);
-  const argv = launchArgv(account, prompt);
-  if (space) run("tab.new", { space: space.id, name: tab, folder, argv });
-  else run("space.new", { name, folder, tab, argv });
 }
 
 /** @param {typeof import("gpui-kit").div} div @param {Record<string, any>} p @param {number} [size] */

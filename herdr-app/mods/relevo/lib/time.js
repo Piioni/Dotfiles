@@ -10,21 +10,6 @@ export function ago(seconds) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-// When each agent entered its status (seconds). Gone agents stay a while: the list is empty right after a start.
-const SINCE_KEPT = 30 * 86400;
-export function nextSince(was, agents, now) {
-  const listed = new Set(agents.map((a) => a.address)), next = {};
-  for (const [key, at] of Object.entries(was)) {
-    if (!listed.has(key.slice(0, key.lastIndexOf(":"))) && now - at < SINCE_KEPT) next[key] = at;
-  }
-  for (const a of agents) next[`${a.address}:${a.status}`] = was[`${a.address}:${a.status}`] ?? now;
-  return next;
-}
-
-export const duration = (s) => (s < 3600
-  ? `${Math.round(s / 60)}m`
-  : `${Math.floor(s / 3600)}h ${String(Math.round((s % 3600) / 60)).padStart(2, "0")}m`);
-
 export function windowOf(pct, resets, length) {
   if (pct == null) return null;
   const now = Date.now() / 1000;

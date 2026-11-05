@@ -17,7 +17,6 @@ const meterTip = (w, label) => {
   return out ? `${resetText(w)} · at this pace 100% at ${clock(out)}` : resetText(w);
 };
 import { collectQuotas, LOGIN_EXPIRED } from "./quota.js";
-import { ledgerTick } from "./ledger.js";
 import { spinner, withKey } from "./ui.js";
 import { openSettings } from "./settings.js";
 
@@ -38,12 +37,7 @@ export class Sidebar {
     cx.timer.every(30000, (cx) => this.load(cx));
     cx.timer.every(QUOTA_EVERY, (cx) => this.collect(cx));
     this.watch = new BackgroundWatch();
-    cx.timer.every(3000, (cx) => {
-      this.watch.tick();
-      cx.spawn(async () => {
-        await ledgerTick();
-      });
-    });
+    cx.timer.every(3000, () => this.watch.tick());
   }
 
   // The usage endpoints; the statusline also writes a snapshot while a session runs.
