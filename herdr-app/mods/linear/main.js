@@ -103,6 +103,12 @@ export default class Linear extends View {
       await this.refresh(cx);
     });
     cx.timer.every(REFRESH, (cx) => { if (!hidden()) this.refresh(cx); });
+    // Coming back to the panel after a while shows fresh issues, not the ones from when it was put away.
+    cx.timer.every(3000, (cx) => {
+      const gone = hidden();
+      if (this.gone && !gone && Date.now() - (this.data[this.scope]?.at ?? 0) > 15000) this.refresh(cx);
+      this.gone = gone;
+    });
   }
 
   // The ordering popup lists the groups the panel is showing; published after the render, only when they change.
@@ -133,8 +139,9 @@ export default class Linear extends View {
   }
 
   async refresh(cx, scope = this.scope) {
-    if (this.loading) return;
-    this.loading = true; cx.notify();
+    // A view picked while another one loads waits its turn instead of being dropped.
+    if (this.loading) { if (scope !== this.loadingScope) this.queued = scope; return; }
+    this.loading = true; this.loadingScope = scope; cx.notify();
     try {
       const token = await readToken(tokenPath());
       if (!this.me) { this.me = (await viewer(token)).id; keep("me", this.me); }
@@ -148,7 +155,10 @@ export default class Linear extends View {
     } catch (e) {
       this.error = e instanceof LinearError ? { kind: e.kind, message: e.message } : { kind: "net", message: "Couldn't reach Linear" };
     } finally {
-      this.loading = false; cx.notify();
+      this.loading = false;
+      const next = this.queued; this.queued = null;
+      if (next && next !== scope) this.refresh(cx, next);
+      cx.notify();
     }
   }
 
