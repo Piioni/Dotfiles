@@ -3,8 +3,8 @@
 // What a PR needs next, in one word: draft, approved, changes (requested) or needs (a review).
 export function reviewOf(pr) {
   if (pr.draft) return "draft";
-  const states = pr.reviews.filter((r) => !r.sha || !pr.headOid || r.sha === pr.headOid).map((r) => r.state);
-  const hasStaleReview = pr.reviews.some((r) => r.sha && pr.headOid && r.sha !== pr.headOid);
+  const states = pr.reviews.filter((r) => !r.stale).map((r) => r.state);
+  const hasStaleReview = pr.reviews.some((r) => r.stale);
   // Re-requesting a reviewer drops their verdict from latestReviews while the decision stays on changes: that is back to needs review.
   if ((!hasStaleReview && pr.decision === "CHANGES_REQUESTED" && !pr.requested.length) || states.includes("CHANGES_REQUESTED")) return "changes";
   // Where the repo requires reviews GitHub's decision wins (one approval of two is not approved); without rules, any approval counts.
@@ -12,6 +12,16 @@ export function reviewOf(pr) {
   if ((!hasStaleReview && pr.decision === "APPROVED" && (!pr.requested.length || states.includes("APPROVED"))) || (!pr.decision && states.includes("APPROVED"))) return "approved";
   return "needs";
 }
+
+// Did the author push real work after the commit a review saw? Merging the base back in (conflict fixes, syncing) does not outdate a review.
+// A review commit older than the commits we fetched counts as moved.
+// ponytail: a merge commit that resolves a conflict could hide a real edit; compare the diff if that ever bites.
+const movedSince = (p, oid) => {
+  const head = p.headRefOid;
+  if (!oid || !head || oid === head) return false;
+  const all = p.recentCommits ?? [], seen = all.indexOf(oid);
+  return seen < 0 || all.slice(seen + 1).some((c) => !(p.mergeOids ?? []).includes(c));
+};
 
 // GitHub mixes check runs (status/conclusion) and commit statuses (state) in one list.
 export function ciOf(rollup = []) {
@@ -34,10 +44,10 @@ const isPerson = (login, author) => Boolean(login) && login !== author && !BOT.t
 // Where each reviewer stands: their last verdict (stale when left on an older commit) or still asked (pending).
 // A reviewer asked again loses their verdict on GitHub, so they show as pending.
 export function verdictsOf(p) {
-  const author = p.author?.login, head = p.headRefOid, seen = new Set();
+  const author = p.author?.login, seen = new Set();
   const given = (p.latestReviews ?? []).filter((r) => KINDS[r.state] && isPerson(r.author?.login, author)).map((r) => {
     seen.add(r.author.login);
-    return { login: r.author.login, kind: KINDS[r.state], stale: Boolean(r.commit?.oid && head && r.commit.oid !== head), at: r.submittedAt };
+    return { login: r.author.login, kind: KINDS[r.state], stale: movedSince(p, r.commit?.oid), at: r.submittedAt };
   });
   const asked = (p.reviewRequests ?? []).map((r) => r.login).filter((l) => isPerson(l, author) && !seen.has(l)).map((login) => ({ login, kind: "pending", stale: false }));
   return [...given, ...asked];
@@ -45,12 +55,13 @@ export function verdictsOf(p) {
 
 // What happened after the newest review: commits pushed on top of the commit it saw, and the author's replies.
 export function sinceReview(p) {
-  const author = p.author?.login, head = p.headRefOid;
+  const author = p.author?.login;
   const r = (p.latestReviews ?? []).filter((x) => KINDS[x.state] && x.submittedAt && isPerson(x.author?.login, author)).sort((a, b) => Date.parse(b.submittedAt) - Date.parse(a.submittedAt))[0];
   if (!r) return null;
   const oids = p.recentCommits ?? [], seen = r.commit?.oid ? oids.indexOf(r.commit.oid) : -1;
-  // Past the commits we fetched: at least all of them are new.
-  const commits = seen >= 0 ? oids.length - 1 - seen : r.commit?.oid && head && r.commit.oid !== head ? oids.length : 0;
+  // Past the commits we fetched: at least all of them are new. Merges of the base are not work.
+  const real = (list) => list.filter((c) => !(p.mergeOids ?? []).includes(c)).length;
+  const commits = seen >= 0 ? real(oids.slice(seen + 1)) : movedSince(p, r.commit?.oid) ? real(oids) : 0;
   const replies = (p.comments ?? []).filter((c) => c.author?.login === author && !c.isMinimized && Date.parse(c.createdAt) > Date.parse(r.submittedAt)).length;
   return commits || replies ? { login: r.author.login, commits, replies } : null;
 }
@@ -90,7 +101,7 @@ export function normalize(p, state = "open") {
     draft: Boolean(p.isDraft), decision: p.reviewDecision ?? "", state,
     assignees: (p.assignees ?? []).map((a) => a.login),
     requested: (p.reviewRequests ?? []).map((r) => r.login ?? r.name ?? r.slug).filter(Boolean),
-    reviews: (p.latestReviews ?? []).map((r) => ({ login: r.author?.login, state: r.state, sha: r.commit?.oid })),
+    reviews: (p.latestReviews ?? []).map((r) => ({ login: r.author?.login, state: r.state, stale: movedSince(p, r.commit?.oid) })),
     labels: p.labels ?? [], head: p.headRefName, headOid: p.headRefOid, base: p.baseRefName,
     adds: p.additions ?? 0, dels: p.deletions ?? 0, files: p.changedFiles ?? 0,
     updatedAt: p.updatedAt, ci: ciOf(p.statusCheckRollup),
@@ -98,6 +109,10 @@ export function normalize(p, state = "open") {
     verdicts: verdictsOf(p), since: sinceReview(p), activity: activityOf(p),
   };
 }
+
+// Reviewed by someone, no verdict yet, nobody on it now and nobody asked: the next move is the author's (or an approver's), not a reviewer's.
+export const isReviewed = (p) => reviewOf(p) === "needs" && !p.assignees.length && !p.requested.length
+  && p.verdicts.some((v) => v.kind === "reviewed" && !v.stale);
 
 export const SCOPES = { all: "All", mine: "Mine" };
 
@@ -113,7 +128,8 @@ export const CHIPS = {
   },
   all: {
     all: { label: "All", test: () => true },
-    needs: { label: "Needs review", test: (p) => reviewOf(p) === "needs" && !p.assignees.length },
+    needs: { label: "Needs review", test: (p) => reviewOf(p) === "needs" && !p.assignees.length && !isReviewed(p) },
+    reviewed: { label: "Reviewed", test: isReviewed },
     reviewing: { label: "Being reviewed", test: (p) => !p.draft && p.assignees.length > 0 },
     asked: { label: "Asked of me", test: (p, me) => p.requested.includes(me) },
     draft: { label: "Drafts", test: (p) => p.draft },
@@ -137,14 +153,14 @@ export function shown(prs, { scope, chip, query = "", me }) {
 // Assignees mean "someone is reviewing this right now": the team assigns on starting a review and unassigns on finishing it.
 const GROUPS = {
   mine: [["attention", "Needs your attention"], ["ready", "Ready to merge"], ["waiting", "Waiting for review"], ["draft", "Drafts"]],
-  all: [["needs", "Needs a reviewer"], ["reviewing", "Being reviewed"], ["changes", "Changes requested"], ["approved", "Approved"], ["draft", "Drafts"]],
+  all: [["needs", "Needs a reviewer"], ["reviewing", "Being reviewed"], ["reviewed", "Reviewed"], ["changes", "Changes requested"], ["approved", "Approved"], ["draft", "Drafts"]],
 };
 
 function bucket(p, scope) {
   const review = reviewOf(p);
   if (review === "draft") return "draft";
   if (scope === "mine") return review === "changes" || p.merge === "conflicts" || p.ci === "failing" ? "attention" : review === "approved" && p.merge === "clean" && !p.blocked && p.ci !== "pending" ? "ready" : "waiting";
-  return review === "changes" || review === "approved" ? review : p.assignees.length ? "reviewing" : "needs";
+  return review === "changes" || review === "approved" ? review : p.assignees.length ? "reviewing" : isReviewed(p) ? "reviewed" : "needs";
 }
 
 // The list split into titled sections, in the order that puts what needs action first; empty ones are left out.
