@@ -4,23 +4,23 @@ import { parseWorktrees, wtName, compile, parseHeader, dropKeys, failure } from 
 
 const PORCELAIN = [
   "worktree /home/u/app\nHEAD aaa\nbranch refs/heads/feat/main-work",
-  "worktree /home/u/app.POS-502-armazon\nHEAD bbb\nbranch refs/heads/feat/POS-502",
-  "worktree /home/u/app/.claude/worktrees/revision-pr-278\nHEAD ccc\ndetached",
+  "worktree /home/u/app.fix-login\nHEAD bbb\nbranch refs/heads/fix/login",
+  "worktree /home/u/app/.claude/worktrees/review-pr-12\nHEAD ccc\ndetached",
   "worktree /home/u/app.gone\nHEAD ddd\nbranch refs/heads/old\nprunable gitdir file points to non-existent location",
   "worktree /srv/bare.git\nbare",
 ].join("\n\n") + "\n";
 
 test("worktrees: main first, branch kept, detached has none, bare and prunable ones are left out", () => {
   const list = parseWorktrees(PORCELAIN);
-  assert.deepEqual(list.map((w) => w.path), ["/home/u/app", "/home/u/app.POS-502-armazon", "/home/u/app/.claude/worktrees/revision-pr-278"]);
+  assert.deepEqual(list.map((w) => w.path), ["/home/u/app", "/home/u/app.fix-login", "/home/u/app/.claude/worktrees/review-pr-12"]);
   assert.equal(list[0].branch, "feat/main-work");
   assert.equal(list[2].branch, null);
 });
 
 test("worktree names: the main checkout by its folder, linked ones without the repo prefix", () => {
   assert.equal(wtName("/home/u/app", "/home/u/app"), "app");
-  assert.equal(wtName("/home/u/app.POS-502-armazon", "/home/u/app"), "POS-502-armazon");
-  assert.equal(wtName("/home/u/app/.claude/worktrees/revision-pr-278", "/home/u/app"), "revision-pr-278");
+  assert.equal(wtName("/home/u/app.fix-login", "/home/u/app"), "fix-login");
+  assert.equal(wtName("/home/u/app/.claude/worktrees/review-pr-12", "/home/u/app"), "review-pr-12");
   assert.equal(wtName("/home/u/elsewhere", "/home/u/app"), "elsewhere");
 });
 
