@@ -13,6 +13,7 @@ files (layouts, mods, keys, settings), so this folder *is* the app's look and be
 | [`relevo-agents`](mods/relevo-agents) | Herdr's Agents list + a launcher menu, an account circle and a background-work capsule | ![](mods/relevo-agents/screenshot.png) |
 | [`prs`](mods/prs) | GitHub pull requests: a panel and a full PR dialog | ![](mods/prs/screenshot.png) |
 | [`linear`](mods/linear) | Your Linear tickets as a panel | ![](mods/linear/screenshot.png) |
+| [`tasks`](mods/tasks) | The scripts in a repo's `.tasks/` as background tasks: groups, hot reload, results and a worktree selector | ![](mods/tasks/screenshot.png) |
 | [`ion-files`](mods/ion-files) | File tree with file operations and Helix | ![](mods/ion-files/screenshot.png) |
 | [`ion-changes`](mods/ion-changes) | Uncommitted changes, Neovim diffs and a commit box | ![](mods/ion-changes/screenshot.png) |
 | [`ion-tabs`](mods/ion-tabs) | The tab bar and the panel buttons | ![](mods/ion-tabs/screenshot.png) |
@@ -25,7 +26,7 @@ Each mod has its own README with what it does, why it exists, what it needs and 
   start, so changes to them have to live in a clone with another name.
 - `relevo`, `relevo-agents`: depend on the Relevo setup (accounts and launchers), and derive from
   [herdr-relevo](https://github.com/johnny4young/herdr-relevo).
-- `prs`, `linear`: my own.
+- `prs`, `linear`, `tasks`: my own.
 
 ## Get it yourself
 
@@ -44,7 +45,10 @@ The account circle and the background-work capsule need the Claude Code hook in 
 what it does and ask before installing it.
 
 prs needs the GitHub CLI (gh) logged in. linear needs a Linear API key in ~/.config/linear/token: ask me
-to put it there myself, and never ask me to paste it in a command line. The ion-* mods are clones of Herdr's
+to put it there myself, and never ask me to paste it in a command line. tasks runs the scripts in each repo's
+.tasks/ folder: ask me which commands I want as tasks and write the scripts with me, using the optional header
+lines from its README. Its Tasks button is a block in the piioni layout; without that layout it opens with
+`herdr-app do mod.open --name tasks`. The ion-* mods are clones of Herdr's
 own files, changes and tabs: tell me what each one changes before adding it. The piioni layout is
 optional: ask me if I want to use it or only some of its pieces.
 ```
@@ -55,6 +59,7 @@ optional: ask me if I want to use it or only some of its pieces.
 |---|---|
 | `gh` ([GitHub CLI](https://cli.github.com/)), logged in | `prs` |
 | Linear API key in `~/.config/linear/token` | `linear`, the Linear chip in `prs` |
+| `hc` ([herdr-core](https://herdr.dev)), `git`, and scripts in each repo's `.tasks/` | `tasks` |
 | `hx` (Helix) | `ion-files` |
 | `git` and `nvim` | `ion-changes` |
 | Claude Code, and optionally its hook (`mods/relevo/hooks`) | account usage, the account circle, background work |
