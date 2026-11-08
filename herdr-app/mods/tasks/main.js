@@ -6,6 +6,7 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import * as fs from "fs/promises";
+import { parseWorktrees, wtName, compile, parseHeader, dropKeys, failure } from "./model.js";
 import { exec, run, terminals, agents, panes, focused, spaces, settings, theme, props, shared, setShared, notify, openOverlay, closeOverlay } from "herdr";
 
 const LABEL = "herdr.task";
@@ -30,13 +31,9 @@ async function scripts(dir, group, root) {
   for (const f of files) {
     const path = `${dir}/${f}`, file = group ? `${group}/${f}` : f;
     try {
-      const head = (await fs.readFile(path, "utf8")).split("\n").slice(0, 8);
-      const name = (head.map((l) => l.match(/^#\s*name:\s*(.+)$/i)?.[1]).find(Boolean) ?? f.replace(/\.sh$/, "")).trim();
+      const { name, ready, reload, busy, problems } = parseHeader(await fs.readFile(path, "utf8"), f.replace(/\.sh$/, ""));
       const [title, ...rest] = name.split(" · ");
-      const ready = head.map((l) => l.match(/^#\s*ready:\s*(.+)$/i)?.[1]).find(Boolean)?.trim();
-      const reload = head.map((l) => l.match(/^#\s*reload:\s*(\S+)/i)?.[1]).find(Boolean);
-      const busy = head.map((l) => l.match(/^#\s*busy:\s*(.+)$/i)?.[1]).find(Boolean)?.trim();
-      tasks.push({ file, name, ready, reload, busy, title, detail: rest.join(" · "), label: group ? `${group} · ${name}` : name, path, key: `${root}:${file}` });
+      tasks.push({ file, name, ready, reload, busy, problems, title, detail: rest.join(" · "), label: group ? `${group} · ${name}` : name, path, key: `${root}:${file}` });
     } catch {}
   }
   return tasks;
@@ -44,16 +41,12 @@ async function scripts(dir, group, root) {
 
 const rank = (name) => (ORDER.includes(name) ? ORDER.indexOf(name) : ORDER.length);
 
-// .tasks is git-ignored, so a worktree doesn't have one: fall back to the main checkout's.
 async function worktreeList(cwd) {
   const r = await exec("git", ["worktree", "list", "--porcelain"], { cwd });
-  if (r.code !== 0) return [];
-  return r.stdout.split("\n\n").map((block) => {
-    const path = block.match(/^worktree (.+)$/m)?.[1];
-    return path && !/^bare$/m.test(block) ? { path, branch: block.match(/^branch refs\/heads\/(.+)$/m)?.[1] ?? null } : null;
-  }).filter(Boolean);
+  return r.code === 0 ? parseWorktrees(r.stdout) : [];
 }
 
+// .tasks is git-ignored, so a worktree doesn't have one: fall back to the main checkout's.
 // `override` is a worktree the user picked for this tab; it only counts while it is still a worktree.
 async function discover(cwd, override) {
   const git = async (...args) => {
@@ -82,12 +75,6 @@ async function discover(cwd, override) {
   return { root, main, worktrees, groups: [] };
 }
 
-// The worktree as it reads best: the main checkout by its folder, the others without the repo's prefix.
-function wtName(path, main) {
-  const b = path.split("/").pop(), m = (main ?? "").split("/").pop();
-  return path === main || !b.startsWith(`${m}.`) ? b : b.slice(m.length + 1);
-}
-
 // Display only: first letter up.
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -107,7 +94,11 @@ export default class Tasks extends View {
     if (log) {
       this.info = log;
       cx.spawn(async (cx) => {
-        try { this.text = (await exec("hc", ["read", log.address, "--lines", "400"])).stdout; } catch (e) { this.text = String(e); }
+        try {
+          const r = await exec("hc", ["read", log.address, "--lines", "400"]);
+          if (r.code === 0) this.text = r.stdout;
+          else { this.text = ""; this.gone = failure(r.stderr || r.stdout) || "the terminal was removed"; }
+        } catch (e) { this.text = ""; this.gone = String(e.message ?? e); }
         cx.notify();
       });
       return;
@@ -133,8 +124,17 @@ export default class Tasks extends View {
     const cwd = this.where(), override = shared(WORKTREE)?.[this.tab], pin = shared(PIN);
     cx.spawn(async (cx) => {
       try {
-        // A pinned worktree wins over the focus; if it is gone, fall back to following the focus.
-        this.found = this.remote ? null : (pin ? await discover(pin.root, pin.root) : null) ?? await discover(cwd, override);
+        if (this.remote) this.found = null;
+        else {
+          // A pinned worktree wins over the focus. If it is gone (nothing found, or git cannot even run
+          // in its folder) the pin is dropped and the focus is followed again.
+          const pinned = pin ? await discover(pin.root, pin.root).catch(() => null) : null;
+          if (pin && !pinned) {
+            setShared(PIN, null);
+            notify({ title: "Tasks", body: "The pinned worktree is gone: following the focus again.", level: "info" });
+          }
+          this.found = pinned ?? await discover(cwd, override);
+        }
       } catch (e) { this.found = null; this.error = String(e); }
       cx.notify();
     });
@@ -142,7 +142,7 @@ export default class Tasks extends View {
 
   // Pin the worktree on screen, or release it to follow the focus again.
   togglePin(cx) {
-    setShared(PIN, shared(PIN) ? null : { root: this.found.root });
+    setShared(PIN, shared(PIN)?.root === this.found.root ? null : { root: this.found.root });
     this.load(cx);
   }
 
@@ -173,6 +173,7 @@ export default class Tasks extends View {
   }
 
   async start(task) {
+    if (task.problems.length) notify({ title: task.label, body: `${task.problems.join("; ")} in ${task.file}: ignored`, level: "warning" });
     const parent = this.parent(this.found.root);
     const base = task.file.replace(/\.sh$/, "").replace(/[^a-z0-9_-]+/gi, "-").toLowerCase().slice(0, 28);
     let name = base, n = 1;
@@ -180,7 +181,7 @@ export default class Tasks extends View {
     const args = ["run", "--bg", "--json", "--outlive-parent", "--no-notify", "--name", name, "--label", `${LABEL}=${task.key}`, ...(task.ready ? ["--label", `${PATTERN}=${task.ready}`] : []), "--cwd", this.found.root, ...(parent ? ["--parent", parent] : ["--no-parent"]), "--", "bash", task.path];
     try {
       const r = await exec("hc", args);
-      if (r.code !== 0) throw new Error((r.stderr || r.stdout).trim().split("\n")[0]);
+      if (r.code !== 0) throw new Error(failure(r.stderr || r.stdout));
       if (!parent) notify({ title: task.label, body: "Started. No agent in this space to hang it from: open Tasks to see it.", level: "info" });
     } catch (e) {
       notify({ title: `${task.label} didn't start`, body: String(e.message ?? e), level: "error" });
@@ -190,7 +191,7 @@ export default class Tasks extends View {
   // Sends the task's reload key (`# reload: r`) to its terminal, as a bare keypress, no Enter.
   reload(task, live, cx) {
     exec("hc", ["keys", live.address, task.reload]).then((r) => {
-      if (r.code !== 0) notify({ title: `${task.label}: reload failed`, body: (r.stderr || r.stdout).trim().split("\n")[0], level: "error" });
+      if (r.code !== 0) notify({ title: `${task.label}: reload failed`, body: failure(r.stderr || r.stdout), level: "error" });
     }).catch((e) => notify({ title: `${task.label}: reload failed`, body: String(e.message ?? e), level: "error" }));
     if (task.busy) setShared(BUSY, { ...shared(BUSY), [live.address]: { since: Date.now(), re: task.busy } });
     this.flash = live.address;
@@ -254,34 +255,40 @@ export default class Tasks extends View {
     this.polling = true;
     try {
       const live = terminals().filter((x) => x.state === "live" && x.labels?.[LABEL]);
-      const ready = new Set(shared(READY) ?? []);
-      let changed = false;
+      const alive = new Set(live.map((x) => x.address));
+      // A read can take a while and another copy may change these lists meanwhile, so each write below
+      // starts from the list as it is at that moment and applies only what this pass learned.
+      const matched = [];
       for (const x of live) {
-        const src = x.labels[PATTERN];
-        if (!src || ready.has(x.address)) continue;
+        const re = x.labels[PATTERN] && compile(x.labels[PATTERN]);
+        if (!re || (shared(READY) ?? []).includes(x.address)) continue;
         try {
           const r = await exec("hc", ["read", x.address, "--lines", "120"]);
-          if (r.code === 0 && new RegExp(src, "i").test(r.stdout)) { ready.add(x.address); changed = true; }
+          if (r.code === 0 && re.test(r.stdout)) matched.push(x.address);
         } catch {}
       }
-      const alive = new Set(live.map((x) => x.address));
-      for (const a of ready) if (!alive.has(a)) { ready.delete(a); changed = true; }
-      if (changed) setShared(READY, [...ready]);
+      const was = shared(READY) ?? [];
+      const ready = was.filter((a) => alive.has(a));
+      for (const a of matched) if (!ready.includes(a)) ready.push(a);
+      if (ready.join() !== was.join()) setShared(READY, ready);
       // Reloading: busy until its screen stops matching the task's `# busy:` pattern (it gets a moment to start first).
-      const busy = { ...(shared(BUSY) ?? {}) };
-      let freed = false;
-      for (const a of Object.keys(busy)) {
-        const age = Date.now() - busy[a].since;
+      const freed = [];
+      for (const [a, b] of Object.entries(shared(BUSY) ?? {})) {
+        const age = Date.now() - b.since;
         let still = alive.has(a) && age < 30000;
         if (still && age > 800) {
+          const re = compile(b.re);
           try {
-            const r = await exec("hc", ["read", a, "--lines", "40"]);
-            still = r.code === 0 && new RegExp(busy[a].re, "im").test(r.stdout);
+            const r = re ? await exec("hc", ["read", a, "--lines", "40"]) : null;
+            still = Boolean(r) && r.code === 0 && re.test(r.stdout);
           } catch { still = false; }
         }
-        if (!still) { delete busy[a]; freed = true; }
+        if (!still) freed.push([a, b.since]);
       }
-      if (freed) setShared(BUSY, busy);
+      // Only entries that are still the very ones judged: a reload pressed meanwhile stays.
+      const now = shared(BUSY) ?? {};
+      const drop = freed.filter(([a, since]) => now[a]?.since === since).map(([a]) => a);
+      if (drop.length) setShared(BUSY, dropKeys(now, drop));
     } finally { this.polling = false; }
   }
 
@@ -315,7 +322,7 @@ export default class Tasks extends View {
         .child(div().flex_1()).child(div().text_size(11).text_color(t.dim).child("Esc to close")))
       .child(v_flex().id("task-log").flex_1().min_h(0).p(10).rounded(8).bg(t.background).overflow_hidden().justify_end()
         .text_size(12).font_family(settings().font_family).text_color(t.muted)
-        .children(this.text === undefined ? [div().child("Loading…")] : lines.map((l, i) => div().id(`l${i}`).flex_none().child(l || " "))));
+        .children(this.text === undefined ? [div().child("Loading…")] : this.gone ? [div().child(`The output is no longer available (${this.gone}).`)] : lines.map((l, i) => div().id(`l${i}`).flex_none().child(l || " "))));
   }
 
   render(cx) {
