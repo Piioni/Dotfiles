@@ -1,0 +1,31 @@
+{
+  "name": "Gentleman Cute",
+  "base": "dark",
+  "overrides": {
+    "autoAccept": "#FF81CC",
+    "bashBorder": "#E0C27A",
+    "bashMessageBackgroundColor": "#151316",
+    "claude": "#F095C8",
+    "claudeShimmer": "#FFB1DD",
+    "diffAdded": "#1A2420",
+    "diffAddedWord": "#2D5A45",
+    "diffRemoved": "#2D151F",
+    "diffRemovedWord": "#7A2948",
+    "error": "#FF718F",
+    "inactive": "#A78E9B",
+    "memoryBackgroundColor": "#1A1218",
+    "merged": "#B4E7C7",
+    "permission": "#F095C8",
+    "planMode": "#A9C7EE",
+    "promptBorder": "#F095C8",
+    "remember": "#E0C27A",
+    "selectionBg": "#563040",
+    "subtle": "#76616B",
+    "success": "#B4E7C7",
+    "suggestion": "#FFB1DD",
+    "text": "#F6EFF3",
+    "userMessageBackground": "#241822",
+    "userMessageBackgroundHover": "#342230",
+    "warning": "#F2B86D"
+  }
+}

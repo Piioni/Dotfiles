@@ -1,0 +1,14 @@
+{
+  "name": "gentleman",
+  "base": "dark",
+  "overrides": {
+    "briefLabelYou": "#DCA561",
+    "chromeYellow": "#DCA561",
+    "diffAdded": "#3F4A2D",
+    "diffAddedWord": "#76946A",
+    "diffRemoved": "#5C3838",
+    "diffRemovedWord": "#C34043",
+    "rainbow_yellow": "#DCA561",
+    "yellow_FOR_SUBAGENTS_ONLY": "#DCA561"
+  }
+}
