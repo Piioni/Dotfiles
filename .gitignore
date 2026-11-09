@@ -109,3 +109,8 @@
 !/gh/
 /gh/*
 !/gh/config.yml
+
+# Docs
+!/README.md
+!/screenshots/
+!/screenshots/**
