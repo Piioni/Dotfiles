@@ -11,6 +11,9 @@
 
 # herdr-app is its own repo (Piioni/herdr-dots), with its own .git
 
+!/niri/
+!/niri/**
+
 !/hypr/
 !/hypr/**
 
