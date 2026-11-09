@@ -108,7 +108,7 @@
     "show_diagnostics": "all",
     "indent_size": 20.0,
     "file_icons": true,
-    "hide_gitignore": true,
+    "hide_gitignore": false,
     "dock": "right",
     "auto_fold_dirs": false,
     "auto_reveal_entries": true,
