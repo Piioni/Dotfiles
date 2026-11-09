@@ -1,0 +1,20 @@
+# Personal tools
+.atl/
+.zed/
+.tasks/
+.teach/
+.opencode/
+odd/
+.pi/
+
+**/.claude/settings.local.json
+
+# Pi Lens local probe logs
+.pi-lens-probe-home/
+.fvm/
+.zed
+.fvm
+
+# Pi grep/find tools pass --hidden; keep .git internals out of rg/fd results
+.git/
+.engram/

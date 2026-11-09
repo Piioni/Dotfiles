@@ -75,3 +75,37 @@
 !/zed/**
 # Local Pi runtime state
 .atl/
+
+# Shell, desktop theming and misc tools
+!/noctalia/
+/noctalia/*
+!/noctalia/config.toml
+
+!/helix/
+!/helix/**
+
+!/Kvantum/
+!/Kvantum/**
+
+!/qt6ct/
+!/qt6ct/**
+
+!/nwg-look/
+!/nwg-look/**
+
+!/xsettingsd/
+!/xsettingsd/**
+
+!/mimeapps.list
+!/user-dirs.dirs
+
+!/herdr-core/
+!/herdr-core/**
+
+!/git/
+/git/*
+!/git/ignore
+
+!/gh/
+/gh/*
+!/gh/config.yml
